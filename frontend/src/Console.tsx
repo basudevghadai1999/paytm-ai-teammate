@@ -116,7 +116,7 @@ export default function Console() {
 
   return (
     <section className="console" aria-label="Ops console">
-      <div className="console__bar"><h2>Ops console</h2><button className="ghost" onClick={() => void reset()}>Reset demo data</button></div>
+      <div className="console__bar"><div><p className="eyebrow plain">[ OPS CONSOLE ]</p><h2 className="display display--mid">Every call, step and <em>escalation</em></h2></div><button className="ghost" onClick={() => void reset()}>Reset demo data</button></div>
       {(msg || tickets.error) && <p className="error" role="alert">{msg || tickets.error}</p>}
       {metrics.data && <MetricsView m={metrics.data} />}
       <div className="console__grid">

@@ -73,7 +73,7 @@ Migrations: `0001` core schema, `0002` voice (ticket channel, `tm_calls`), `0003
 | `GET /healthz`, `GET /readyz` | Liveness and readiness (readyz checks the DB) |
 
 ## Frontend
-Two views: **Merchant call** (pick a demo merchant, enter phone and email, press *Call me*, watch the call status, each agent step, the confirmation and the transcript) and **Ops console** (metrics with a chart, ticket list with a call tag, per-ticket conversation, call transcript and agent trace, escalation queue). Styled with the Paytm hackathon palette.
+Two views: **Merchant call** (pick a demo merchant, enter phone and email, press *Call me*, watch the call status, each agent step, the confirmation and the transcript) and **Ops console** (metrics with a chart, ticket list with a call tag, per-ticket conversation, call transcript and agent trace, escalation queue). Styled with the Paytm hackathon palette and laid out for wide desktop screens (two-column hero, hairline capability grid, floating glass nav, a quiet canvas background, word-by-word headline, count-up stats, marquee). Motion is switched off under `prefers-reduced-motion`, the background pauses when the tab is hidden, and the layout collapses to one column on tablet and phone.
 
 ## Email
 Resend, over HTTPS (`app/mailer.py`). The sender is an address on a domain verified in Resend (`EMAIL_FROM`). Three kinds of mail: the agent's confirmation (`send_notification`), the acknowledgement the code sends itself when a ticket resolves or escalates, and the urgent alert to the human support inbox (`SUPPORT_ALERT_EMAIL`) on emergency escalations. Resend accepting a message is not proof of delivery, and the UI only says "emailed" when Resend accepted it.

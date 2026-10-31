@@ -59,3 +59,12 @@ test('the header shows who is signed in', async () => {
   expect(await screen.findByText(/me@example.com/)).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Sign out' })).toHaveAttribute('href', '/auth/logout')
 })
+
+test('the call screen opens with the headline, the live merchant count and the capabilities', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/merchants') ? merchants : {}), { status: 200 })))
+  render(<App />)
+  expect(await screen.findByText('Every issue, sorted on one call.')).toBeInTheDocument()  // screen-reader text of the animated headline
+  expect(screen.getByRole('heading', { name: /One teammate, built to act/ })).toBeInTheDocument()
+  expect(screen.getByText('Rules enforced in code')).toBeInTheDocument()
+  expect(screen.getByText('Demo merchants')).toBeInTheDocument()
+})
