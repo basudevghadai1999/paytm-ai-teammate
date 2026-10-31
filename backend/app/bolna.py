@@ -34,6 +34,9 @@ How to work:
 - Escalate with escalate_to_human for fraud, legal threats, an abusive or distressed merchant, a settlement on hold, a refund above the limit, or when unsure. Tell the merchant a person will follow up. Do not promise an outcome.
 - Finish by calling resolve_ticket (or escalate_to_human) before you say goodbye, and state only outcomes that tool results confirm. Then end the call politely."""
 
+TRANSCRIBER_LANGUAGE = "hi"  # Deepgram nova-3 Hindi; also copes with Hindi-English mixing
+TRANSCRIBER_KEYWORDS = ("Paytm, settlement, refund, soundbox, UPI, QR, transaction, KYC, merchant, "
+                        "payment failed, money debited, replacement, Paytm Soundbox")
 WELCOME = "Namaste! This is the Paytm support assistant. How can I help you today?"
 
 
@@ -116,6 +119,9 @@ def apply_agent(base_url: str) -> dict:
         raise BolnaError("This agent has no conversation task to attach tools to")
     conv["tools_config"] = conv.get("tools_config") or {}
     conv["tools_config"]["api_tools"] = _split(tool_definitions(base_url))
+    # only language and keywords change; provider, model, endpointing and the rest stay as configured in Bolna
+    conv["tools_config"]["transcriber"] = {**(conv["tools_config"].get("transcriber") or {}),
+                                           "language": TRANSCRIBER_LANGUAGE, "keywords": TRANSCRIBER_KEYWORDS}
     keep = ("agent_name", "agent_type", "ingest_source_config", "calling_guardrails", "call_summary_enabled")
     cfg = {k: agent[k] for k in keep if agent.get(k) is not None}
     cfg["agent_welcome_message"] = WELCOME
