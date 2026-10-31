@@ -71,7 +71,7 @@ Calling is restricted on purpose: the endpoint is public, so in production only 
 
 Set the secrets listed in `render.yaml` in the Render dashboard: `DATABASE_URL`, `MIGRATION_DATABASE_URL`, `NVIDIA_API_KEY`, `GROQ_API_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, `SUPPORT_ALERT_EMAIL`, `BOLNA_API_KEY`, `BOLNA_PAYTM_AGENT_ID`, `BOLNA_WEBHOOK_SECRET`, `DEMO_CALL_ALLOWLIST`, `PUBLIC_BASE_URL`. The free instance sleeps when idle and takes up to a minute to wake: open the app before placing a call.
 
-**Private during development:** put the site behind Cloudflare Access (email one-time code) and set `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` and `CONSOLE_URL`; the app then also rejects any request that did not come through Access, except the health checks and the Bolna endpoints. See `docs/DEPLOYMENT.md`.
+**Private during development:** sign in with Google, and only the accounts in `ALLOWED_EMAILS` get in (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_EMAILS`, `SESSION_SECRET`). Cloudflare Access can be added in front as well. Everything except the health checks, the sign-in routes and the Bolna endpoints is gated. See `docs/DEPLOYMENT.md`.
 
 Because the database is shared with COOLops, migrations create only `tm_*` tables, use their own version table (`alembic_version_teammate`), and `alembic downgrade base` drops only `tm_*` tables.
 

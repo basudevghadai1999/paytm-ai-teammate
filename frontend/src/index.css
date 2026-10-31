@@ -90,3 +90,5 @@ th, td { padding:10px 8px; border-bottom:1px solid var(--line) } tbody tr { curs
 
 .call__email { display:flex; flex-direction:column; gap:6px; font-weight:600; font-size:13px }
 .sms--email { border-style:solid; border-color:var(--ok); background:var(--ok-bg) }
+
+.who { font-size:13px; color:#bfe6ff } .who a { color:#fff; font-weight:600 }

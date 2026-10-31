@@ -25,3 +25,7 @@ services:
       - {key: ACCESS_TEAM_DOMAIN, sync: false}      # Cloudflare Access team domain, e.g. yourteam.cloudflareaccess.com (with ACCESS_AUD, turns the gate on)
       - {key: ACCESS_AUD, sync: false}              # the Access application's Audience (AUD) tag
       - {key: CONSOLE_URL, sync: false}             # the address people use, e.g. https://paytm.basudevtech.com (used in emails)
+      - {key: GOOGLE_CLIENT_ID, sync: false}        # Google sign-in: OAuth client; redirect URI = <site>/auth/callback
+      - {key: GOOGLE_CLIENT_SECRET, sync: false}
+      - {key: ALLOWED_EMAILS, sync: false}          # comma-separated Google accounts that may use the site; with the two above, turns sign-in on
+      - {key: SESSION_SECRET, generateValue: true}  # signs the login cookie

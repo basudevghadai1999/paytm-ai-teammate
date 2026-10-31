@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     email_from: str = "Paytm AI Teammate <onboarding@resend.dev>"
     support_alert_email: str = ""  # human support inbox for emergency escalations; empty = no alert email
 
+    # Google sign-in. Client id + secret + ALLOWED_EMAILS all set = only those Google accounts can use the site.
+    google_client_id: str = ""
+    google_client_secret: str = Field("", validation_alias=AliasChoices("GOOGLE_CLIENT_SECRET", "GOOGLE_SECRET_ID"))
+    allowed_emails: str = ""  # comma-separated Google account emails
+    session_secret: str = ""  # signs the login cookie; 32+ characters
+
     # Cloudflare Access in front of the site. Both set = every request outside OPEN_PATHS must carry a valid Access token.
     access_team_domain: str = ""  # e.g. yourteam.cloudflareaccess.com
     access_aud: str = ""          # the Access application's Audience (AUD) tag

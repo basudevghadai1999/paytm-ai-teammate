@@ -52,3 +52,10 @@ test('the ops console shows an empty state', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Ops console' }))
   await waitFor(() => expect(screen.getByText(/No tickets yet/)).toBeInTheDocument())
 })
+
+test('the header shows who is signed in', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/auth/me') ? { auth: true, email: 'me@example.com' } : merchants), { status: 200 })))
+  render(<App />)
+  expect(await screen.findByText(/me@example.com/)).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Sign out' })).toHaveAttribute('href', '/auth/logout')
+})
