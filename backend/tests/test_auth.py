@@ -123,6 +123,14 @@ def test_without_google_settings_the_site_is_open(monkeypatch):
     assert client.get("/api/v1/merchants").status_code == 200
 
 
+def test_me_names_the_missing_settings_but_never_their_values(monkeypatch):
+    monkeypatch.setattr(settings, "allowed_emails", "")
+    monkeypatch.setattr(settings, "google_client_secret", "")
+    j = client.get("/auth/me").json()
+    assert j == {"auth": False, "email": None, "missing": ["GOOGLE_CLIENT_SECRET", "ALLOWED_EMAILS"]}
+    assert "cid.apps" not in str(j)
+
+
 def test_google_and_cloudflare_access_can_be_used_together(monkeypatch):
     from app import access
     monkeypatch.setattr(settings, "access_team_domain", "team.cloudflareaccess.com")

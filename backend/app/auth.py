@@ -126,9 +126,24 @@ async def callback(request: Request, code: str = "", state: str = "", error: str
     return resp
 
 
+def missing() -> list[str]:
+    """Names (never values) of the settings that keep sign-in switched off, so a misconfigured deploy can be diagnosed from outside."""
+    out = []
+    if not settings.google_client_id:
+        out.append("GOOGLE_CLIENT_ID")
+    if not settings.google_client_secret:
+        out.append("GOOGLE_CLIENT_SECRET")
+    if not allowed():
+        out.append("ALLOWED_EMAILS")
+    return out
+
+
 @router.get("/me")
 def me(request: Request):
-    return JSONResponse({"auth": enabled(), "email": session_email(request)}, headers={"Cache-Control": "no-store"})
+    body = {"auth": enabled(), "email": session_email(request)}
+    if not body["auth"]:
+        body["missing"] = missing()
+    return JSONResponse(body, headers={"Cache-Control": "no-store"})
 
 
 @router.get("/logout")
