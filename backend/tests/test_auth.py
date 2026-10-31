@@ -30,7 +30,7 @@ def sign_in(monkeypatch, email):
     """Run the whole flow with a fresh client; returns the client holding the session cookie (or none)."""
     google_says(monkeypatch, email)
     c = TestClient(app, base_url="https://testserver", follow_redirects=False)
-    r = c.get("/auth/login")
+    r = c.get("/auth/google")
     state = parse_qs(urlparse(r.headers["location"]).query)["state"][0]
     return c, c.get("/auth/callback", params={"code": "abc", "state": state})
 
@@ -44,7 +44,7 @@ def test_anonymous_visitors_are_sent_to_sign_in_or_refused():
 
 
 def test_login_redirects_to_google_with_the_right_parameters():
-    r = client.get("/auth/login")
+    r = client.get("/auth/google")
     q = parse_qs(urlparse(r.headers["location"]).query)
     assert r.headers["location"].startswith("https://accounts.google.com/")
     assert q["client_id"] == ["cid.apps.googleusercontent.com"] and q["response_type"] == ["code"]
@@ -70,14 +70,14 @@ def test_any_other_google_account_is_refused(monkeypatch):
 def test_an_unverified_email_is_refused(monkeypatch):
     google_says(monkeypatch, ME, verified=False)
     c = TestClient(app, base_url="https://testserver", follow_redirects=False)
-    state = parse_qs(urlparse(c.get("/auth/login").headers["location"]).query)["state"][0]
+    state = parse_qs(urlparse(c.get("/auth/google").headers["location"]).query)["state"][0]
     assert c.get("/auth/callback", params={"code": "abc", "state": state}).status_code == 403
 
 
 def test_a_wrong_state_or_missing_cookie_fails(monkeypatch):
     google_says(monkeypatch, ME)
     c = TestClient(app, base_url="https://testserver", follow_redirects=False)
-    c.get("/auth/login")
+    c.get("/auth/google")
     assert c.get("/auth/callback", params={"code": "abc", "state": "forged"}).status_code == 400
     assert TestClient(app, base_url="https://testserver", follow_redirects=False).get("/auth/callback", params={"code": "abc", "state": "x"}).status_code == 400
     assert c.get("/auth/callback", params={"error": "access_denied", "state": "x"}).status_code == 400
@@ -138,3 +138,18 @@ def test_google_and_cloudflare_access_can_be_used_together(monkeypatch):
     monkeypatch.setattr(access, "valid", lambda t: t == "good")
     assert client.get("/api/v1/merchants", headers={"cf-access-jwt-assertion": "good"}).status_code == 200
     assert client.get("/api/v1/merchants", headers={"cf-access-jwt-assertion": "bad"}).status_code == 401
+
+
+def test_the_sign_in_page_is_public_and_shows_what_the_app_does():
+    r = client.get("/auth/login")
+    assert r.status_code == 200 and "text/html" in r.headers["content-type"]
+    for text in ("Sign in with Google", 'href="/auth/google"', "How it works", "Capabilities", "Emergencies reach a human",
+                 "Illustrative sample data", "Simulated for the demo", "Only approved Google accounts"):
+        assert text in r.text
+    assert "cid.apps.googleusercontent.com" not in r.text and "gsecret" not in r.text  # nothing configured leaks into the page
+
+
+def test_a_signed_in_visitor_skips_the_sign_in_page(monkeypatch):
+    c, _ = sign_in(monkeypatch, ME)
+    r = c.get("/auth/login")
+    assert r.status_code == 302 and r.headers["location"] == "/"

@@ -16,7 +16,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from jwt import PyJWKClient
 
-from app import access
+from app import access, landing
 from app.core.config import settings
 
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -91,10 +91,17 @@ def _page(status: int, title: str, body: str) -> HTMLResponse:
         '<div style="background:#fff;border:1px solid #d9e8f5;border-radius:20px;padding:32px;max-width:420px;box-shadow:0 8px 28px rgba(11,42,111,.1)">'
         f'<h1 style="margin:0 0 8px;color:#0b2a6f;font-size:22px">{html.escape(title)}</h1><p style="color:#5a6b8c">{html.escape(body)}</p>'
         '<a href="/auth/login" style="display:inline-block;margin-top:8px;background:#0b2a6f;color:#fff;text-decoration:none;'
-        'padding:10px 20px;border-radius:999px;font-weight:600">Sign in with Google</a></div></body>', status_code=status)
+        'padding:10px 20px;border-radius:999px;font-weight:600">Back to sign in</a></div></body>', status_code=status)
 
 
 @router.get("/login")
+def login_page(request: Request):
+    if session_email(request):
+        return RedirectResponse("/", status_code=302)
+    return HTMLResponse(landing.page(), headers={"Cache-Control": "no-store"})
+
+
+@router.get("/google")
 def login():
     if not enabled():
         return _page(404, "Sign-in is not set up", "Google sign-in is not configured for this app.")

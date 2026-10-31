@@ -43,7 +43,7 @@ Secrets are set in the Render dashboard (`sync: false`) and in a local, git-igno
 Two independent gates; either one, or both, can be turned on. With neither set the site is open.
 
 ### Google sign-in (built into the app)
-Only the Google accounts listed in `ALLOWED_EMAILS` can use the site (`app/auth.py`). Visitors are sent to Google, and after sign-in the app checks the verified email against the list; anyone else is refused, even if Google let them through. A signed, HttpOnly session cookie lasts 8 hours, and the list is re-checked on every request, so removing an email takes effect immediately. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_EMAILS` and `SESSION_SECRET` (32+ characters; a weak one makes the site return 503 rather than open). In Google Cloud, add `<site>/auth/callback` as an authorized redirect URI of the OAuth client (and `http://localhost:8000/auth/callback` for local use). Open paths: `/healthz`, `/readyz`, `/auth/*` and `/api/v1/voice/*` (Bolna's own endpoints, protected by their bearer secret and call verification).
+Only the Google accounts listed in `ALLOWED_EMAILS` can use the site (`app/auth.py`). Visitors are sent to Google, and after sign-in the app checks the verified email against the list; anyone else is refused, even if Google let them through. A signed, HttpOnly session cookie lasts 8 hours, and the list is re-checked on every request, so removing an email takes effect immediately. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_EMAILS` and `SESSION_SECRET` (32+ characters; a weak one makes the site return 503 rather than open). In Google Cloud, add `<site>/auth/callback` as an authorized redirect URI of the OAuth client (and `http://localhost:8000/auth/callback` for local use). Anonymous visitors see a public sign-in page at `/auth/login` (what the app does, what is real and what is simulated, and a *Sign in with Google* button that starts the flow at `/auth/google`); signed-in visitors skip it. Open paths: `/healthz`, `/readyz`, `/auth/*` and `/api/v1/voice/*` (Bolna's own endpoints, protected by their bearer secret and call verification).
 
 ### Cloudflare Access (optional, in front of the site)
 The site is private: Cloudflare Access asks for an email, sends a one-time code, and only listed emails get in.
@@ -57,7 +57,7 @@ The site is private: Cloudflare Access asks for an email, sends a one-time code,
 
 ## CI (GitHub Actions)
 `.github/workflows/ci.yml`, on every push and pull request:
-- **backend:** Postgres 16 service, create owner and app roles, `pip install -e 'backend[dev]'`, `alembic upgrade head`, `pytest -q` (67 tests with a scripted model and a mocked Bolna and Resend; no API keys needed). The CI database is a throwaway, not Supabase.
+- **backend:** Postgres 16 service, create owner and app roles, `pip install -e 'backend[dev]'`, `alembic upgrade head`, `pytest -q` (70 tests with a scripted model and a mocked Bolna and Resend; no API keys needed). The CI database is a throwaway, not Supabase.
 - **frontend:** Node 22, `npm ci && npm test && npm run build`.
 
 ## Shared-database safeguards
