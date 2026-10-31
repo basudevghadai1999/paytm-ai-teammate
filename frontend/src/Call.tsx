@@ -60,22 +60,26 @@ export default function Call() {
   const state = ticket ? callState(ticket) : null
   return (
     <section className="call" aria-label="Merchant call">
-      <h2 style={{ margin: 0 }}>Talk to the AI teammate</h2>
-      <p className="muted" style={{ margin: 0 }}>Pick a demo merchant, enter your own number, and the teammate will call you. Payments, settlements and devices are simulated.</p>
+      <div className="call__hero">
+        <h2>Talk to the AI teammate</h2>
+        <p>Pick a demo merchant, enter your number, and the teammate calls you to sort out your issue. Payments, settlements and devices are simulated.</p>
+      </div>
+      <div className="call__form">
       <div className="call__row">
-        <label><span className="muted">Demo merchant</span>
+        <label><span>Demo merchant</span>
           <select value={merchantId} onChange={e => { setMerchantId(e.target.value); reset() }} disabled={ticketId !== null && !finished}>
             {merchants.map(m => <option key={m.id} value={m.id}>{m.name} · {m.city}</option>)}
           </select></label>
-        <label><span className="muted">Your phone number</span>
+        <label><span>Your phone number</span>
           <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+919876543210" inputMode="tel" autoComplete="tel" disabled={ticketId !== null && !finished} /></label>
       </div>
-      {SCENARIOS[merchantId] && <p className="muted small" style={{ margin: 0 }}>Try saying: {SCENARIOS[merchantId]}</p>}
+      {SCENARIOS[merchantId] && <p className="hint"><b>Try saying:</b> {SCENARIOS[merchantId]}</p>}
       {phone && !valid && <p className="muted small" style={{ margin: 0 }}>Include the country code, for example +91…</p>}
       {error && <p className="error" role="alert">{error}</p>}
       {ticketId === null || finished
         ? <button className="call__go" onClick={() => void call()} disabled={!valid || busy || !merchantId}>{busy ? 'Placing the call…' : finished ? 'Call again' : 'Call me'}</button>
         : null}
+      </div>
 
       {ticketId !== null && (
         <div className="call__live" aria-live="polite">
