@@ -1,0 +1,21 @@
+# Free-tier demo: Render free web service + the existing Supabase Postgres (tm_* tables only).
+services:
+  - type: web
+    name: paytm-teammate
+    runtime: docker
+    plan: free
+    healthCheckPath: /readyz
+    autoDeploy: true
+    envVars:
+      - {key: ENVIRONMENT, value: production}
+      - {key: DATABASE_URL, sync: false}            # Supabase session-pooler URL, role coolops_app
+      - {key: MIGRATION_DATABASE_URL, sync: false}  # Supabase session-pooler URL, owner role (alembic at start)
+      - {key: NVIDIA_API_KEY, sync: false}          # preferred when set (LLM_PROVIDER=auto)
+      - {key: GROQ_API_KEY, sync: false}            # fallback provider
+      - {key: PUBLIC_BASE_URL, sync: false}         # https://<service>.onrender.com
+      - {key: AUTO_REFUND_LIMIT_INR, value: "2000"}
+      - {key: ALLOW_DEMO_RESET, value: "false"}     # set true only if the console's reset button is needed; it deletes every ticket
+      - {key: BOLNA_API_KEY, sync: false}
+      - {key: BOLNA_PAYTM_AGENT_ID, sync: false}    # a NEW Bolna agent; never the COOLops agent
+      - {key: BOLNA_WEBHOOK_SECRET, sync: false}      # must equal the value in backend/.env, which apply_agent writes into Bolna
+      - {key: DEMO_CALL_ALLOWLIST, sync: false}     # comma-separated E.164 numbers the demo may dial; empty disables calls

@@ -1,0 +1,351 @@
+=== PROMPT 1 — MASTER BUILD: STRUCTURE, TOKENS, PAGE AND INTERFACE LAYER ===
+
+You are a Principal Creative Developer and Design Engineer. Build a complete, production-ready website template called NOCTURNE — "A Living Interface".
+
+The premise: the page is a rendering and interaction layer. It reads pointer, scroll and dwell, and answers in light. A GPU particle field sits behind everything and is the only imagery on the page — there is no photography, no video, no 3D model files.
+
+Build it as a ZERO-BUILD static site. No npm, no bundler, no framework, no TypeScript. Plain HTML, CSS and ES modules, served straight from a folder.
+
+========================
+FILE LAYOUT
+========================
+
+nocturne-template/
+  index.html            the whole page, one file
+  css/style.css         design tokens at the top, sections below
+  js/particles.js       the GPU field — ES module, imports three
+  js/main.js            interface layer — IIFE, loaded with defer
+  js/vendor/three.module.js   Three.js r160, vendored (MIT)
+  assets/light-study.svg      the editorial visual in the white panel
+  README.md
+
+index.html declares an import map so particles.js can `import * as THREE from &#x27;three&#x27;`:
+
+  <script type="importmap">
+  { "imports": { "three": "./js/vendor/three.module.js" } }
+  </script>
+
+  <script type="module" src="js/particles.js"></script>
+  <script src="js/main.js" defer></script>
+
+Because it uses ES modules it must be opened through a server, not file://. Document `python3 -m http.server 8000` in the README.
+
+========================
+DESIGN TOKENS — put these at the very top of style.css
+========================
+
+:root{
+  --ink:#06060a; --ink-soft:#0c0c12; --paper:#f2f0ec; --paper-dim:#e6e3dd;
+  --amber:#ffc46b; --rose:#ff5f7e; --violet:#9d5cff; --plum:#5b21b6;
+  --fg:#f4f2ee;
+  --fg-60:rgba(244,242,238,.60); --fg-40:rgba(244,242,238,.40);
+  --fg-20:rgba(244,242,238,.20); --fg-10:rgba(244,242,238,.10);
+  --line:rgba(244,242,238,.12);
+  --f-display:&#x27;Instrument Serif&#x27;,&#x27;Times New Roman&#x27;,serif;
+  --f-body:&#x27;Manrope&#x27;,system-ui,-apple-system,sans-serif;
+  --f-mono:&#x27;JetBrains Mono&#x27;,ui-monospace,monospace;
+  --e-out:cubic-bezier(.16,1,.3,1);
+  --e-io:cubic-bezier(.65,.05,.36,1);
+  --pad:clamp(20px,3.2vw,56px);
+  --radius:clamp(14px,1.6vw,26px);
+  --nav-h:54px;
+}
+
+Three families from Google Fonts in one <link>: Instrument Serif (display, italic available), Manrope 300-700 (body), JetBrains Mono 300-500 (labels).
+
+Body: Manrope, weight 300, 16px, line-height 1.55, on --ink.
+Display type: Instrument Serif, tight leading (~0.92), letter-spacing about -0.02em. Italic <em> inside a display heading gets an amber → rose → violet gradient text fill.
+`.mono`: 0.66rem, letter-spacing .13em, uppercase.
+Size ramp: .display clamp(3rem,7.6vw,8.4rem); --mid clamp(2.6rem,6.2vw,6.2rem); --big clamp(3.4rem,11vw,11rem); --edge clamp(2.4rem,7.4vw,7.6rem).
+
+========================
+FIXED LAYERS, BACK TO FRONT
+========================
+
+1. <canvas class="stage"> — fixed inset 0, z-index 0, pointer-events none. The particle field.
+2. .scrim — fixed, z-index 0: radial-gradient(130% 95% at 50% 45%, transparent 34%, rgba(6,6,10,.42) 78%, rgba(6,6,10,.78) 100%). A vignette so type stays legible over the field.
+3. .ambient — three huge blurred colour blobs (filter: blur(90px)), amber top-left, violet mid-right, rose bottom-left, drifting on 26s/32s/38s ease-in-out loops.
+4. .grain — fixed, inset -120%, opacity .032, an inline SVG feTurbulence fractalNoise data-URI, animated with `steps(6)` over 6s so it jitters rather than slides.
+5. Page content.
+6. .cursor — z-index 60, mix-blend-mode difference.
+7. .loader — the preloader, above everything until it is done.
+
+========================
+PAGE STRUCTURE
+========================
+
+Sections that want the field declare it on themselves:
+
+  <section data-shape="0" data-field="1">
+
+data-shape picks the form (0 corona, 1 galaxy, 2 cortex, 3 lattice). data-field (0-1) dims the field so copy stays readable.
+
+NAV — fixed pill, centred, max-width ~1180px, translucent with backdrop-filter blur, 1px --line border, radius 999px. Left: an eight-spoke asterisk mark (SVG: a vertical, a horizontal and two diagonals through a 100x100 box, round caps) plus the word "Nocturne". Middle: Home / System / Work / Studio. Right: a ghost "Start a project" button. Hides on scroll down past 260px, returns on scroll up. Burger below 860px opens a full-screen menu.
+
+HERO — data-shape="0" data-field="1", min-height 100svh, three rows spread apart:
+  h1 "Presence over polish" — .display, max-width 12ch, character reveal.
+  A .label line "It senses pointer, scroll<br>and dwell — and replies in light." on the left, and a right-aligned .body-sm paragraph "A rendering and interaction layer that turns your visitor&#x27;s presence into motion, tuned to feel alive under every pointer."
+  Footer row: mono tags "[ LIVING INTERFACE ] · [ GPU RENDERER ] · [ 92K PARTICLES ]" and a solid paper-coloured "Start a project" button carrying the asterisk mark.
+  A "SCROLL" cue with a thin animated rule at the bottom.
+
+SYSTEM — data-shape="1" data-field=".8", centred:
+  h2 "It listens, then it <em>glows</em>" (glows italic, gradient).
+  A centred .body-sm.
+  Four stats in a row, each a left border rule: 92k Live particles / 6.4 Frame budget ms / 0.8 Cold start secs / 120 Frames per sec. Numbers count up when scrolled into view via data-count and optional data-suffix.
+
+NEURAL — data-shape="2" data-field=".95", justified between:
+  Two small .label paragraphs top-left and top-right.
+  Then two enormous .display--edge headings: "Built to think" flush left, "in real time" flush right, on separate lines with a big vertical gap. This is the section where the cortex reads as a brain in profile between them.
+
+CAPABILITIES — data-shape="3" data-field=".5":
+  Kicker "[ CAPABILITIES ]", h2 "One engine, <em>many moods</em>".
+  A 3x2 grid of six cards, 1px gaps over a --line background so the gutters read as hairlines, outer border and --radius, overflow hidden. Cards: 01 Morph pipeline / 02 Pointer physics / 03 Velocity smear / 04 Focus reveals / 05 Adaptive budget / 06 Zero build. Each has a mono index, a serif h3 and two lines of body copy.
+
+WHITE PANEL (id="work") — a full-bleed --paper section, dark type (#111116). Two columns: on the left h2 "A living interface" and three numbered notes [ 01 ][ 02 ][ 03 ]; on the right a figure with assets/light-study.svg and a mono figcaption "FIG. 01 — CONTOUR OF A PRESENCE". The particle field must fade out behind this panel.
+
+MARQUEE — an infinite horizontal band, two duplicated tracks: "Nocturne ✳ Living interface ✳ GPU renderer ✳ brandmotion.in ✳".
+
+FAQ (id="studio") — a second --paper panel, narrow column. Five items built on semantic <details>/<summary>, first one open, single-open behaviour enforced in JS. Questions: what Nocturne is / low-end hardware / accessibility / rebranding / licensing.
+
+CTA (id="contact") — data-shape="3" data-field=".42": .display--big "Let&#x27;s talk.", a two-field form (name, email) with a ghost submit, and a mono note "WE REPLY WITHIN ONE WORKING DAY."
+
+FOOTER — brand block plus three link columns (ENGINE / STUDIO / ELSEWHERE), then a bar: "© 2026 NOCTURNE — A TEMPLATE BY BRANDMOTION.IN" and "BUILT FOR SIXTY FRAMES". A soft glow sits behind it.
+
+========================
+INTERFACE LAYER — js/main.js
+========================
+
+One IIFE, &#x27;use strict&#x27;, numbered sections in comments. Read `prefers-reduced-motion` and `(pointer: coarse)` once at the top and branch on them.
+
+1 · PRELOADER. Full-screen overlay on --ink. Top row: "NOCTURNE" and "v—2026 / GPU.04". Centre: the asterisk mark, slowly spinning. Bottom: a status message, a zero-padded three-digit percentage, and a 1px progress bar.
+   Behind it, a 2D canvas of diagonal light-rain: one drop per 9px of viewport width, each a linear gradient from rgba(255,225,200,alpha) to transparent violet, falling with x drift at 0.34 of y speed, recycled off the top when it leaves the bottom.
+   Progress eases toward a ceiling of 88% until the engine reports ready, then toward 100. Messages cycle: INITIALISING ENVIRONMENT / COMPILING SHADERS / SEEDING PARTICLE FIELD / CALIBRATING PRESENCE. A 6-second hard ceiling releases the page even if nothing reports back — never trap a visitor behind a preloader.
+   On finish: fade the overlay, unlock body scroll, call the engine&#x27;s ready(), then stagger the hero reveals 90ms apart.
+
+2 · FOCUS REVEALS. Elements carry data-reveal="chars" or "words". Walk their text nodes and wrap each token in <span class="rv">, preserving spaces, skipping <br>. Each span gets a --d custom property: index × 42ms for chars, × 30ms for words. In CSS the spans start at opacity 0, blur(12px), translateY(.5em) and resolve on .is-in with a 0.9s --e-out transition delayed by --d. An IntersectionObserver at threshold 0.18 adds .is-in once and unobserves. Grid children (.cap, .note, .stat) additionally get a transition-delay of (i % 6) × 80ms.
+
+3 · CURSOR. Skip entirely on coarse pointers or reduced motion. A 5px dot pinned to the raw pointer position, and a 34px ring that eases toward it at 0.16 per frame. Over `a, button, summary, input, .cap, .panel__media` the ring scales up and fills faintly.
+
+4 · MAGNETIC BUTTONS. Anything with data-magnetic. On pointermove, translate the element by (offset from centre) × 0.30 horizontally and × 0.42 vertically, eased at 0.16 per frame in a rAF loop that stops itself when it has settled. Return to zero on pointerleave. On click, call the engine&#x27;s pulse().
+
+5 · NAV. Hide on downward scroll past 260px unless the mobile menu is open. Burger toggles. An IntersectionObserver with rootMargin -40% 0px -40% marks the active link.
+
+6 · COUNTERS. data-count, optional data-suffix. On first intersection at 0.6, run a 1500ms cubic ease-out, preserving the decimal places written in the attribute. Under reduced motion, write the final value immediately.
+   When the engine announces its real particle budget, rewrite the 92k stat and the hero&#x27;s "[ 92K PARTICLES ]" tag to match. The page must never advertise a count the device is not running.
+
+7 · FAQ. On <details> toggle, close every sibling.
+
+8 · FORM. Validate a non-empty name and a plausible email. On failure, set an error note and shake the form with the Web Animations API (±7px, 320ms). On success, swap the note to "THANKS {FIRSTNAME} — WE WILL REPLY WITHIN ONE WORKING DAY.", reset, and pulse the field. Leave a clearly marked comment where an endpoint goes.
+
+9 · SMOOTH ANCHORS. Intercept in-page links, scrollIntoView with behavior &#x27;smooth&#x27; — or &#x27;auto&#x27; under reduced motion.
+
+10 · Press `n` anywhere (outside inputs, without modifiers) to cycle the field by hand.
+
+========================
+ACCESSIBILITY AND PERFORMANCE
+========================
+
+- prefers-reduced-motion is honoured everywhere: animations collapse to 0.001ms, reveals become plain fades with no blur or transform, the grain and scroll cue are removed, the field settles and stops drifting and smearing.
+- Semantic landmarks, real <details> for the accordion, full keyboard order, and a visible focus ring: 1.5px solid --amber, 3px offset.
+- Clamp devicePixelRatio to 2.
+- Pause the render loop entirely on visibilitychange when the tab is hidden.
+- Do not render the field where it cannot be seen — fade it out under the light panels.
+- No layout thrash: animate transform and opacity only.
+
+Target: 60fps at the top particle budget on an M-series laptop, and 60fps at the mobile budget on an iPhone 12.
+
+Support: Chrome/Edge 89+, Safari 15.4+, Firefox 103+. backdrop-filter must degrade to a flat translucent panel.
+
+The exact particle-field specification — constants, shape algorithms, shaders and camera — is in the second prompt. Build this shell first, then that.
+
+---
+
+=== PROMPT 2 — PARTICLE FIELD SPECIFICATION: EXACT CONSTANTS, SHAPES, SHADERS AND CAMERA ===
+
+Now build js/particles.js — the GPU field. This is the part that has to be exact, so every constant below is given. Do not substitute your own values: the forms are sculpted, and the numbers are the sculpture.
+
+Three.js r160, vendored locally, imported as `three` through the import map.
+
+========================
+CONFIG — one object at the top of the file, everything tunable lives here
+========================
+
+const CONFIG = {
+  count:       { desktop: 92000, laptop: 62000, tablet: 38000, mobile: 22000 },
+  colorA:      &#x27;#ffd08a&#x27;,   // amber  — top of every form
+  colorB:      &#x27;#ff5f7e&#x27;,   // rose   — middle
+  colorC:      &#x27;#7c3aed&#x27;,   // violet — bottom
+  size:        9.5,
+  opacity:     1.0,
+  idleFlow:    0.085,
+  mouseRadius: 2.2,
+  mousePush:   1.45,
+  morphTime:   1500,
+  spin:        0.055
+};
+
+Budget negotiation at boot, in this order: mobile user-agent OR width < 640 -> mobile; width < 1024 -> tablet; width < 1600 OR navigator.deviceMemory <= 4 -> laptop; otherwise desktop.
+
+Renderer: antialias false, alpha true, powerPreference &#x27;high-performance&#x27;, clear colour 0x000000 at alpha 0, pixel ratio min(devicePixelRatio, 2).
+Camera: PerspectiveCamera(52, aspect, 0.1, 100) at (0, 0, 8.2).
+
+========================
+DETERMINISTIC RNG — the forms must be identical on every reload
+========================
+
+let _s = 0x2f6e2b1;
+const rnd = () => { _s ^= _s << 13; _s ^= _s >>> 17; _s ^= _s << 5; return ((_s >>> 0) % 100000) / 100000; };
+
+An xorshift seeded with a constant. No Math.random anywhere in shape generation — a field that re-sculpts itself on refresh is a different product.
+
+Value noise on top of it:
+  hash3(x,y,z) = fract(sin(x*127.1 + y*311.7 + z*74.7) * 43758.5453)
+  noise3 = trilinear interpolation of hash3 at the eight lattice corners, with smoothstep weights u = xf*xf*(3-2*xf) on each axis.
+  fbm(x,y,z) = noise3(p)*0.6 + noise3(p*2.1)*0.26 + noise3(p*4.3)*0.14
+
+========================
+SHAPE 0 — CORONA. A hollow, noise-rippled shell. Dense rim, dark core.
+========================
+
+HOLE = 0.62 radians. For each point:
+  lat = HOLE + rnd() * (PI - 2*HOLE)      // clipped at both poles, leaving an aperture facing the camera
+  th  = rnd() * 2PI
+  x = sin(lat)cos(th), y = sin(lat)sin(th), z = cos(lat)
+  petal = sin(th*7 + lat*3.0)*0.13 + sin(lat*8)*0.07
+  crust = (fbm(x*2.4 + 5, y*2.4, z*2.4) - 0.5) * 0.44
+  r = 2.62 + petal + crust + (rnd()-0.5)*0.10
+  inward = rnd() < 0.06 ? 0.45 + rnd()*0.4 : 1.0     // a thin veil of strays drifting into the mouth
+  write (x*r*inward, y*r*inward, z*r*inward*0.86)
+
+========================
+SHAPE 1 — GALAXY. Barred spiral, hot core, two dust rings.
+========================
+
+ARMS = 3. For each point, t = rnd():
+  If t < 0.16 — core bulge: r = pow(rnd(), 2.2) * 0.85, spherical with th = rnd()*2PI and ph = acos(2*rnd()-1); write (sin(ph)cos(th)*r*1.35, cos(ph)*r*0.62, sin(ph)sin(th)*r*1.35).
+  Otherwise — arm:
+    arm    = floor(rnd()*ARMS)/ARMS * 2PI
+    r      = 0.55 + pow(rnd(), 0.62) * 3.55
+    wind   = r * 0.86
+    spread = (rnd()-0.5)*(0.30 + r*0.13) + (rnd()-0.5)*0.16
+    ang    = arm + wind + spread
+    ring   = (|r - 2.05| < 0.06 || |r - 3.35| < 0.05) ? 1 : 0     // crisp highlights at two radii
+    rr     = ring ? r : r + (rnd()-0.5)*0.16
+    write (cos(ang)*rr, (rnd()-0.5)*(ring ? 0.05 : 0.34)*exp(-r*0.32), sin(ang)*rr)
+
+========================
+SHAPE 2 — CORTEX. A folded brain in profile. Sculpted, never a model file.
+========================
+
+Anatomical frame: fx front/back (maps to screen x, so the profile reads at rest), fy up/down, fz across.
+
+For each point, t = rnd():
+  t < 0.075 — cerebellum, rear-low: sphere of r = 0.58*(0.80 + rnd()*0.20), offset (-1.24, -1.10, 0), scaled (0.92, 0.62, 1.02).
+  t < 0.098 — stem: h = rnd(), r = 0.19*(1 - h*0.34), th = rnd()*2PI; write (cos(th)*r - 0.46, -1.18 - h*0.60, sin(th)*r).
+  Otherwise — cerebrum, by REJECTION SAMPLING. Up to 14 tries:
+    th = rnd()*2PI, ph = acos(2*rnd()-1)
+    ux = sin(ph)cos(th), uy = cos(ph), uz = sin(ph)sin(th)
+    g     = fbm(ux*2.0 + 3, uy*2.0, uz*2.0)
+    ridge = |sin(g*16.0 + ux*1.6)|                       // 0 is the floor of a sulcus
+    if (tries < 13 && rnd() > 0.16 + 0.84*ridge) continue;   // carve by DENSITY, not displacement
+    shell = 1 - pow(rnd(), 3.6) * 0.24
+    R  = (1 + ridge*0.075) * shell
+    fx = ux*R*2.06;  fy = uy*R*1.42 + 0.12;  fz = uz*R*1.56
+    frontal taper / occipital tuck: if (fx > 0) { fy *= 1 - fx*0.045; fz *= 1 - fx*0.060; } else { fz *= 1 + fx*0.030; }
+    longitudinal fissure: sgn = fz >= 0 ? 1 : -1; fz = sgn * (|fz| + 0.11 * max(0, 1 - |fy|/1.5))
+    temporal lobe: if (fy < -0.38) { k = fy + 0.38; fy = -0.38 + k*0.70; fx = fx*0.92 + 0.10; fz *= 0.93; }
+    accept and break.
+
+  Carving by rejecting points inside a sulcus, rather than displacing them, is the whole trick — displacement smooths out at this point count and the folds stop reading.
+
+========================
+SHAPE 3 — LATTICE. The calm, architectural state.
+========================
+
+side = ceil(sqrt(n)). For index i:
+  gx = (i % side)/side, gz = floor(i/side)/side
+  x = (gx - 0.5 + (rnd()-0.5)*0.012) * 9.6
+  z = (gz - 0.5 + (rnd()-0.5)*0.012) * 9.6
+  d = hypot(x, z)
+  y = sin(d*1.55 - 0.6)*0.62*exp(-d*0.20) + sin(x*0.85)*cos(z*0.85)*0.30 + (fbm(x*0.5 + 12, 0.5, z*0.5) - 0.5)*0.42
+  write (x, y - 0.3, z)
+
+========================
+CAMERA FRAMING — one entry per shape
+========================
+
+const VIEWS = [
+  { z: 9.0,  y: 0.00, rx: 0.00, spin: 0.085, ox: 1.45, oy: -0.10, axis:&#x27;z&#x27; },  // corona: offset right of the headline, spun about z
+  { z: 10.4, y: 0.05, rx: 0.62, spin: 0.070, ox: 0.00, oy:  0.05 },            // galaxy: tilted into a disc
+  { z: 8.4,  y:-0.05, rx: 0.10, spin: 0.042, ox: 0.15, oy:  0.00 },            // cortex: near level, slow
+  { z: 10.6, y: 0.90, rx: 0.82, spin: 0.028, ox: 0.00, oy: -0.35 }             // lattice: high and raked
+];
+
+Ease every one of z, y, rx, spin, ox, oy toward the active view at 0.035 per frame (spin at 0.05) — the camera should never cut.
+Narrow viewports: fit = aspect < 1.35 ? 1 + (1.35 - aspect)*0.62 : 1 multiplies z, and oxFit = clamp((aspect - 0.5)/1.1, 0.12, 1) multiplies ox, so nothing crops on a phone.
+Pointer parallax: camera x eases toward ndcX*0.55 and y toward camY + ndcY*0.35, both at 0.035. camera.lookAt(0, camY*0.4, 0).
+
+========================
+GEOMETRY — one buffer, four forms
+========================
+
+Attributes: position (the live interpolated source), aTarget, aSeed (vec3), aSize (float).
+Per particle: aSeed.x = rnd() morph stagger; aSeed.y = rnd()*2PI drift phase; aSeed.z = 0.5 + rnd() drift speed.
+aSize: rnd() < 0.014 ? 1.5 + rnd()*1.3 : 0.34 + rnd()*0.62 — about 1.4% of points are bright "stars" that carry the bloom.
+Set boundingSphere manually to radius 12 so nothing is frustum-culled mid-morph.
+
+Material: ShaderMaterial, transparent, depthWrite false, AdditiveBlending.
+Uniforms: uTime, uMorph, uSize, uDpr, uMouse (vec3), uMouseAmt, uStretch, uFlow, uOpacity, uColorA/B/C, uSpan.
+
+VERTEX SHADER, in order:
+  1. Staggered cross-fade:  m = clamp((uMorph - aSeed.x*0.34) / 0.66, 0, 1); m = m*m*(3-2*m);  pos = mix(position, aTarget, m);
+     The stagger is why the field flows between forms instead of snapping.
+  2. Mid-morph bloom:  burst = sin(m*PI) * (0.55 + aSeed.z*0.75);  pos += normalize(pos + 0.0001) * burst;
+     Everything disperses outward at the halfway point and collapses into the new silhouette.
+  3. Idle drift:  ph = aSeed.y + uTime*aSeed.z*0.55;  pos += vec3(sin(ph), cos(ph*1.21), sin(ph*0.77)) * uFlow;
+  4. Pointer repulsion in world space:  d = pos - uMouse; infl = smoothstep(2.20, 0.0, length(d)) * uMouseAmt; pos += normalize(d + 0.0001) * infl * 1.45;
+  5. Scroll smear:  pos.x *= 1.0 + uStretch*1.5;  pos.y *= 1.0 - uStretch*0.42;
+  6. gl_PointSize = uSize * aSize * (1 + infl*0.9) * (1 - uStretch*0.35) * uDpr * (1 / max(-mv.z, 0.001)) * 1.55
+  7. Colour, keyed to WORLD height so the palette stays put while the form rotates:
+       g = clamp((world.y / uSpan)*0.5 + 0.5, 0, 1);  g = smoothstep(0.14, 0.86, g);
+       col = g > 0.5 ? mix(uColorB, uColorA, pow((g-0.5)*2, 0.72)) : mix(uColorC, uColorB, pow(g*2, 1.25));
+       col = mix(col, vec3(1.0), smoothstep(1.5, 2.9, aSize)*0.34 + infl*0.28);   // hot points read closer to white
+     Amber always on top, violet always below, whatever the rotation is doing.
+     uSpan is set per shape: 1.2 for the lattice, 1.6 for the galaxy, 2.6 otherwise.
+  8. vFade = smoothstep(24.0, 3.0, -mv.z) — depth falloff.
+
+FRAGMENT SHADER: circular points, `if (dot(c,c) > 0.25) discard;` then a soft core plus a wider halo — a = smoothstep(0.25,0,d); a = a*a*0.80 + smoothstep(0.25,0.04,d)*0.34 — so overlapping points bloom to white under additive blending.
+
+========================
+MORPH CONTROLLER — interruptions must stay smooth
+========================
+
+setShape(i): if i is already current, return.
+If a morph is in flight, first FREEZE it: for every particle recompute its staggered, smoothstepped m and write position += (aTarget - position) * m, so the buffer holds exactly what is on screen. Only then copy the new form into aTarget. If no morph is running, position = aTarget first.
+Then reset uMorph to 0, stamp morphStart, set uSpan for the new shape, and flag morphing.
+
+Scrolling mid-morph is the common case, and without the freeze the field jumps.
+
+Progress: morphT = min(1, (now - morphStart) / 1500), uMorph = easeInOut(morphT) with the cubic ease t<0.5 ? 4t³ : 1 - pow(-2t+2,3)/2.
+
+========================
+INPUT AND VISIBILITY
+========================
+
+Sections: an IntersectionObserver with threshold [0.3, 0.6] and rootMargin &#x27;-12% 0px -12% 0px&#x27;. On an intersecting entry above ratio 0.3, call setShape(+dataset.shape) and set the dim target from dataset.field.
+
+Pointer: track NDC on pointermove, ease mouseAmt toward 1 at 0.08 per frame, drop to 0 on pointerleave. Raycast onto the z = 0 plane and lerp uMouse toward the hit at 0.16. Skip all of it under reduced motion.
+
+Scroll: velocity += ((scrollY - lastScroll) - velocity) * 0.18. stretch target = min(0.42, |velocity| * 0.0022), approached at 0.22 rising and 0.055 falling — the comet forms fast and relaxes slowly.
+
+Field visibility: each frame, measure how much of any data-shape section overlaps the viewport, take the largest, multiply by 1.7 and clamp to 1. Ease the field opacity toward it at 0.09 and multiply by the eased data-field dim. This is what fades the field out under the white panels.
+
+Loop: cap delta at 0.05. Rotate about z for the corona (axis:&#x27;z&#x27;) and about y for the others, damping the unused axis by 0.985 each frame. Pause entirely on visibilitychange and restart the clock on return so nothing lurches.
+
+Resize: debounce 140ms, then update aspect, projection matrix, renderer size and uDpr.
+
+========================
+PUBLIC HANDLE
+========================
+
+Expose window.NOCTURNE = { ready(), count, setShape(i), pulse() } and dispatch a &#x27;nocturne:ready&#x27; CustomEvent carrying the negotiated count. ready() is what lets the preloader hold the field at zero opacity until the page is revealed; pulse() spikes uMouseAmt to 1.6 for a burst on click; count is what the interface layer uses to correct the advertised particle number.

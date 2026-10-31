@@ -1,0 +1,29 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: {POSTGRES_PASSWORD: pg}
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      MIGRATION_DATABASE_URL: postgresql+psycopg://coolops_owner:coolops_owner@localhost:5432/coolops
+      DATABASE_URL: postgresql+psycopg://coolops_app:coolops_app@localhost:5432/coolops
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.13"}
+      - run: |
+          PGPASSWORD=pg psql -h localhost -U postgres -c "create role coolops_owner login superuser password 'coolops_owner'" -c "create role coolops_app login password 'coolops_app'" -c "create database coolops owner coolops_owner"
+      - run: pip install -e 'backend[dev]'
+      - run: cd backend && alembic upgrade head && pytest -q
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - run: cd frontend && npm ci && npm test && npm run build
