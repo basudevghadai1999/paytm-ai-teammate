@@ -22,3 +22,6 @@ services:
       - {key: RESEND_API_KEY, sync: false}
       - {key: EMAIL_FROM, sync: false}              # e.g. Paytm AI Teammate <support@your-verified-domain>; unset = Resend sandbox sender
       - {key: SUPPORT_ALERT_EMAIL, sync: false}     # human support inbox that gets emergency escalations
+      - {key: ACCESS_TEAM_DOMAIN, sync: false}      # Cloudflare Access team domain, e.g. yourteam.cloudflareaccess.com (with ACCESS_AUD, turns the gate on)
+      - {key: ACCESS_AUD, sync: false}              # the Access application's Audience (AUD) tag
+      - {key: CONSOLE_URL, sync: false}             # the address people use, e.g. https://paytm.basudevtech.com (used in emails)

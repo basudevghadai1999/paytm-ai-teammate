@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from app import seed, tickets
+from app import access, seed, tickets
 from app.agent import run_ticket
 from app.core.config import settings
 from app.core.db import db, engine
@@ -14,6 +14,7 @@ from app.llm import LLM, get_llm
 from app.voice import router as voice_router
 
 app = FastAPI(title="Paytm AI Teammate", docs_url="/api/docs" if settings.environment != "production" else None, redoc_url=None)
+app.middleware("http")(access.gate)
 api = APIRouter(prefix="/api/v1")
 
 

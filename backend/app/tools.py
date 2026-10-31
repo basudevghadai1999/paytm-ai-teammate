@@ -159,7 +159,7 @@ def _alert_support(c: Ctx, esc_id: int, reason: str, summary: str, steps: list, 
     m = c.d.one("select m.name, m.city from tm_tickets t join tm_merchants m on m.id = t.merchant_id where t.id = :t", t=c.ticket_id)
     body = (f"Emergency escalation, ticket #{c.ticket_id}\nMerchant: {m['name']} ({m['city']})\nReason: {reason.replace('_', ' ')}\n\n"
             f"Summary: {summary}\n\nSteps attempted: {'; '.join(map(str, steps)) or 'none'}\n\nRecommended action: {rec}\n\n"
-            f"Open the ops console to review the full call and agent steps: {settings.public_base_url}")
+            f"Open the ops console to review the full call and agent steps: {settings.console_url or settings.public_base_url}")
     try:
         mailer.send(settings.support_alert_email, f"[URGENT] Paytm support escalation #{c.ticket_id}: {reason.replace('_', ' ')}", body)
     except mailer.MailError:

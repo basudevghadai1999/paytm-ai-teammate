@@ -31,10 +31,17 @@ A single free web service `paytm-teammate`, `runtime: docker`, `healthCheckPath:
 | `EMAIL_FROM` | An address on a domain verified in Resend. The default sandbox sender only delivers to the Resend account owner |
 | `SUPPORT_ALERT_EMAIL` | Human support inbox for emergency escalations; empty means no alert email |
 | `PUBLIC_BASE_URL` | `https://<service>.onrender.com`; written into the Bolna agent's tool and webhook URLs |
+| `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` | Cloudflare Access gate; both set turns it on (see Access control) |
+| `CONSOLE_URL` | The address people use (the Cloudflare hostname); used for links in emails. Falls back to `PUBLIC_BASE_URL` |
 | `AUTO_REFUND_LIMIT_INR` | Optional, default 2000 |
 | `ALLOW_DEMO_RESET` | `false` by default; `true` lets the console's reset button delete all tickets |
 
 Secrets are set in the Render dashboard (`sync: false`) and in a local, git-ignored `.env`. They must never be committed.
+
+## Access control (Cloudflare Access, for development)
+The site is private: Cloudflare Access asks for an email, sends a one-time code, and only listed emails get in.
+- **Gate in the app** (`app/access.py`): when `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are set, every request must carry a valid Cloudflare Access token (signature, audience and issuer checked), so the plain `onrender.com` address cannot be used to get around Access. Open paths: `/healthz`, `/readyz` (Render's health checks) and `/api/v1/voice/*` (Bolna cannot type a code; these endpoints have their own bearer secret and verify every call with Bolna). Unset, the gate is off.
+- **Setup:** add a custom domain in Render (for example `paytm.basudevtech.com`); in Cloudflare DNS add a proxied CNAME to the Render address; in Zero Trust turn on One-time PIN, create a self-hosted Access application for that hostname with an Allow policy for the permitted emails, and a second application for path `/api/v1/voice` with a Bypass policy; then set `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` and `CONSOLE_URL` in Render. The Bolna agent can keep calling the `onrender.com` address, because the voice paths are open.
 
 ## Bolna agent
 1. Create a **new** agent in Bolna and choose its voice and transcriber (this deployment uses a Sarvam voice, Deepgram nova-3).
@@ -43,7 +50,7 @@ Secrets are set in the Render dashboard (`sync: false`) and in a local, git-igno
 
 ## CI (GitHub Actions)
 `.github/workflows/ci.yml`, on every push and pull request:
-- **backend:** Postgres 16 service, create owner and app roles, `pip install -e 'backend[dev]'`, `alembic upgrade head`, `pytest -q` (46 tests with a scripted model and a mocked Bolna and Resend; no API keys needed). The CI database is a throwaway, not Supabase.
+- **backend:** Postgres 16 service, create owner and app roles, `pip install -e 'backend[dev]'`, `alembic upgrade head`, `pytest -q` (54 tests with a scripted model and a mocked Bolna and Resend; no API keys needed). The CI database is a throwaway, not Supabase.
 - **frontend:** Node 22, `npm ci && npm test && npm run build`.
 
 ## Shared-database safeguards

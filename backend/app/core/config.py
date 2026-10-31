@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     email_from: str = "Paytm AI Teammate <onboarding@resend.dev>"
     support_alert_email: str = ""  # human support inbox for emergency escalations; empty = no alert email
 
+    # Cloudflare Access in front of the site. Both set = every request outside OPEN_PATHS must carry a valid Access token.
+    access_team_domain: str = ""  # e.g. yourteam.cloudflareaccess.com
+    access_aud: str = ""          # the Access application's Audience (AUD) tag
+    console_url: str = ""         # human-facing address used in emails; falls back to PUBLIC_BASE_URL
+
     auto_refund_limit_inr: int = 2000
     agent_step_limit: int = 8
     allow_demo_reset: bool = False  # POST /demo/reset; always on outside production
