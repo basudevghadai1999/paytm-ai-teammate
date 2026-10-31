@@ -2,8 +2,8 @@ from app.core.config import settings
 from app.core.db import Db
 
 
-def create_ticket(d: Db, merchant_id: str, message: str) -> int:
-    t = d.one("insert into tm_tickets (merchant_id) values (:m) returning id", m=merchant_id)
+def create_ticket(d: Db, merchant_id: str, message: str, email: str | None = None) -> int:
+    t = d.one("insert into tm_tickets (merchant_id, contact_email) values (:m, :e) returning id", m=merchant_id, e=email)
     d.run("insert into tm_messages (ticket_id, role, content) values (:t, 'merchant', :c)", t=t["id"], c=message)
     return t["id"]
 
@@ -13,7 +13,8 @@ def ticket_detail(d: Db, ticket_id: int) -> dict | None:
               " where t.id = :t", t=ticket_id)
     if not t:
         return None
-    t["messages"] = d.all("select id, role, kind, content, created_at from tm_messages where ticket_id = :t order by id", t=ticket_id)
+    t["has_email"] = bool(t.pop("contact_email", None))  # the address itself is never returned
+    t["messages"] = d.all("select id, role, kind, channel, content, created_at from tm_messages where ticket_id = :t order by id", t=ticket_id)
     t["actions"] = d.all("select id, step, tool, args, result, allowed, created_at from tm_actions where ticket_id = :t order by id",
                          t=ticket_id)
     t["call"] = d.one("select status, phone_last4, transcript, duration_seconds, created_at, ended_at from tm_calls"

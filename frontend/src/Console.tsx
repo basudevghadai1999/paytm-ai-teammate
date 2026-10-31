@@ -84,7 +84,7 @@ function TicketDetail({ id, onChanged }: { id: number; onChanged: () => void }) 
         </div>
       )}
       <h4>Conversation</h4>
-      <ul className="thread">{t.messages.map(m => <li key={m.id}><strong>{m.role}{m.kind === 'notification' ? ' (sms)' : ''}:</strong> {m.content}</li>)}</ul>
+      <ul className="thread">{t.messages.map(m => <li key={m.id}><strong>{m.role}{m.kind === 'notification' ? (m.channel === 'email' ? ' (email)' : ' (logged)') : ''}:</strong> {m.content}</li>)}</ul>
       <h4>Agent steps</h4>
       {t.actions.length === 0 && <p className="muted">No tool calls.</p>}
       <ol className="trace">

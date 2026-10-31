@@ -20,6 +20,7 @@ api = APIRouter(prefix="/api/v1")
 class NewTicket(BaseModel):
     merchant_id: str
     message: str = Field(min_length=1, max_length=2000)
+    email: str | None = Field(default=None, max_length=254)  # optional on the chat path; confirmations go here
 
 
 class NewMessage(BaseModel):
@@ -56,7 +57,7 @@ def create_ticket(body: NewTicket, llm: LLM = Depends(get_llm)) -> dict:
     with db() as d:
         if not d.one("select 1 as x from tm_merchants where id = :m", m=body.merchant_id):
             raise HTTPException(404, "Unknown merchant")
-        tid = tickets.create_ticket(d, body.merchant_id, body.message)
+        tid = tickets.create_ticket(d, body.merchant_id, body.message, body.email)
     run_ticket(tid, llm)
     with db() as d:
         return tickets.ticket_detail(d, tid)

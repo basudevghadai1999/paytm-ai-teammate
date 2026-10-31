@@ -4,7 +4,7 @@ Hackathon project, **Track 3: Autonomous AI Teammates**. An AI teammate that tak
 
 A merchant picks a demo profile, enters their number, and the teammate calls them. On the call it looks up settlements, payments and devices, refunds within policy, raises soundbox replacements, sends a simulated SMS, and closes the ticket. Anything risky (large refunds, KYC holds, fraud or legal threats) goes to a person with a full case summary.
 
-Payments, settlements, devices and SMS are **simulated** (`tm_*` tables). Only the phone call is real.
+Payments, settlements and devices are **simulated** (`tm_*` tables). The phone call and the **confirmation emails** (Resend) are real. SMS is not sent: Resend is email-only, so the app emails instead.
 
 ## How it works
 
@@ -22,6 +22,8 @@ Ops console (React) ──> /api/v1/tickets, /metrics        simulated systems (
 - **The model only proposes; code decides.** Every tool call goes through guardrails in `app/tools.py`: refund limit, one refund per transaction, refunds only for eligible payments, replacement only for a faulty device, and the merchant is bound from the call we placed, never from what the caller says.
 - **Calls are verified.** Each tool call is checked with Bolna: the call must be a live execution of our agent that this app placed.
 - **Never ends silently.** A call that drops before resolution escalates as `call_dropped`; an LLM outage escalates; a step limit escalates.
+- **Confirmation by email.** The merchant types an email address in the call form (a spoken address is easily misheard). When the ticket resolves or escalates, the code itself sends an acknowledgement, and the agent's own `send_notification` is a real email too. The reply may only claim an email was sent if one really was.
+- **Emergencies reach a human.** Fraud, a hacked account, legal threats and abusive or distressed merchants escalate straight away, and the support inbox (`SUPPORT_ALERT_EMAIL`) gets an urgent email with the case summary. As a safety net, after every call the merchant's side of the transcript (English and Hindi) is screened; if the agent missed an emergency, the ticket is reopened and escalated.
 - **Everything is audited** in `tm_actions` (allowed or blocked) and shown in the ops console, together with the call transcript.
 
 ## Screens
@@ -56,7 +58,7 @@ cd ../frontend && npm ci && npm run dev      # http://localhost:5173, proxies /a
 ## Voice setup (Bolna)
 
 1. Create a **new** Bolna agent. Do not reuse the COOLops agent: applying this app's setup replaces the agent's prompt, tools and webhook. Choose the voice and transcriber in Bolna (Sarvam voice works; use a multilingual or Hindi transcriber for Hindi merchants).
-2. Set in `backend/.env` (and in Render): `BOLNA_API_KEY`, `BOLNA_PAYTM_AGENT_ID`, `BOLNA_WEBHOOK_SECRET` (any long random string), `DEMO_CALL_ALLOWLIST` (comma-separated E.164 numbers the demo may dial), and `PUBLIC_BASE_URL` (an https address Bolna can reach, such as the Render URL).
+2. Set in `backend/.env` (and in Render): `RESEND_API_KEY`, `EMAIL_FROM` (an address on a domain verified in Resend; the default sandbox sender only delivers to your own Resend account), `SUPPORT_ALERT_EMAIL`, `BOLNA_API_KEY`, `BOLNA_PAYTM_AGENT_ID`, `BOLNA_WEBHOOK_SECRET` (any long random string), `DEMO_CALL_ALLOWLIST` (comma-separated E.164 numbers the demo may dial), and `PUBLIC_BASE_URL` (an https address Bolna can reach, such as the Render URL).
 3. From `backend/`, run `python -m app.apply_agent`. It writes the voice prompt, the tools and the webhook into the agent and reads the agent back to confirm. Run it again whenever `PUBLIC_BASE_URL` or the prompt changes.
 4. Open the app, pick a merchant, enter an allowlisted number, press *Call me*.
 
@@ -66,7 +68,7 @@ Calling is restricted on purpose: the endpoint is public, so in production only 
 
 `render.yaml` defines one free web service, `paytm-teammate`, built from the `Dockerfile` (Node build stage, Python 3.13 runtime). On start it runs `alembic upgrade head`, seeds demo data only if the merchants table is empty, then serves the API and the built frontend. Health check: `/readyz`.
 
-Set the secrets listed in `render.yaml` in the Render dashboard: `DATABASE_URL`, `MIGRATION_DATABASE_URL`, `NVIDIA_API_KEY`, `GROQ_API_KEY`, `BOLNA_API_KEY`, `BOLNA_PAYTM_AGENT_ID`, `BOLNA_WEBHOOK_SECRET`, `DEMO_CALL_ALLOWLIST`, `PUBLIC_BASE_URL`. The free instance sleeps when idle and takes up to a minute to wake: open the app before placing a call.
+Set the secrets listed in `render.yaml` in the Render dashboard: `DATABASE_URL`, `MIGRATION_DATABASE_URL`, `NVIDIA_API_KEY`, `GROQ_API_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, `SUPPORT_ALERT_EMAIL`, `BOLNA_API_KEY`, `BOLNA_PAYTM_AGENT_ID`, `BOLNA_WEBHOOK_SECRET`, `DEMO_CALL_ALLOWLIST`, `PUBLIC_BASE_URL`. The free instance sleeps when idle and takes up to a minute to wake: open the app before placing a call.
 
 Because the database is shared with COOLops, migrations create only `tm_*` tables, use their own version table (`alembic_version_teammate`), and `alembic downgrade base` drops only `tm_*` tables.
 
@@ -97,7 +99,8 @@ The auto-resolution rate over the whole set is about 40%, because half the scena
 
 ## Known limits
 
-- Fraud and legal wording is screened in code before the model runs on the chat path. On a live call the words arrive mid-call, so voice relies on the agent's prompt and the escalation tool; a post-call transcript check is not built.
+- On a live call, fraud and legal wording reaches the agent mid-call, so voice relies on its prompt and the escalation tool first, then the post-call transcript screen as a safety net. The screen is keyword-based, so unusual phrasing can slip past it.
+- Resend accepting an email does not prove it was delivered or read.
 - FR-504 (a human approves a recommended refund from the console) is not built: over-limit refunds are blocked by design, so approving one needs a policy decision.
 - Bolna's custom-function JSON follows the COOLops integration; confirm it with a real test call after `apply_agent`.
 

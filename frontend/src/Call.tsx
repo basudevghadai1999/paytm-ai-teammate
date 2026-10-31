@@ -5,6 +5,7 @@ import { StatusPill, toolLine } from './ui'
 
 const ENDED = ['completed', 'call-disconnected', 'no-answer', 'busy', 'failed', 'canceled', 'cancelled', 'stopped', 'error', 'balance-low']
 const E164 = /^\+[1-9]\d{7,14}$/
+const EMAIL = /^[^@\s]{1,64}@[^@\s]+\.[^@\s]{2,}$/
 
 const SCENARIOS: Record<string, string> = {
   'M-SHARMA': 'Ask where your settlement is.', 'M-PRIYA': 'Say a customer paid but you did not get the payment.',
@@ -28,6 +29,7 @@ export default function Call() {
   const [merchants, setMerchants] = useState<Merchant[]>([])
   const [merchantId, setMerchantId] = useState('')
   const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
   const [ticketId, setTicketId] = useState<number | null>(null)
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [busy, setBusy] = useState(false)
@@ -46,12 +48,14 @@ export default function Call() {
   }, [ticketId, finished])
 
   const clean = phone.replace(/\s/g, '')
-  const valid = E164.test(clean)
+  const validPhone = E164.test(clean)
+  const validEmail = EMAIL.test(email.trim())
+  const valid = validPhone && validEmail
 
   async function call() {
     if (!valid || busy) return
     setBusy(true); setError(''); setTicket(null)
-    try { setTicketId((await api.startCall(merchantId, clean)).ticket_id) }
+    try { setTicketId((await api.startCall(merchantId, clean, email.trim())).ticket_id) }
     catch (e) { setError(e instanceof Error ? e.message : 'Could not place the call') }
     finally { setBusy(false) }
   }
@@ -73,8 +77,11 @@ export default function Call() {
         <label><span>Your phone number</span>
           <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+919876543210" inputMode="tel" autoComplete="tel" disabled={ticketId !== null && !finished} /></label>
       </div>
+      <label className="call__email"><span>Email for your confirmation</span>
+        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" maxLength={254} disabled={ticketId !== null && !finished} /></label>
       {SCENARIOS[merchantId] && <p className="hint"><b>Try saying:</b> {SCENARIOS[merchantId]}</p>}
-      {phone && !valid && <p className="muted small" style={{ margin: 0 }}>Include the country code, for example +91…</p>}
+      {phone && !validPhone && <p className="muted small" style={{ margin: 0 }}>Include the country code, for example +91…</p>}
+      {email && !validEmail && <p className="muted small" style={{ margin: 0 }}>Enter a valid email address.</p>}
       {error && <p className="error" role="alert">{error}</p>}
       {ticketId === null || finished
         ? <button className="call__go" onClick={() => void call()} disabled={!valid || busy || !merchantId}>{busy ? 'Placing the call…' : finished ? 'Call again' : 'Call me'}</button>
@@ -88,7 +95,10 @@ export default function Call() {
           {ticket && ticket.actions.length > 0 && (
             <ol className="steps">{ticket.actions.map(a => <li key={a.id} className={a.allowed ? '' : 'blocked'}>{toolLine(a.tool)}{a.allowed ? '' : ' (not allowed)'}</li>)}</ol>
           )}
-          {ticket?.messages.filter(m => m.kind === 'notification').map(m => <div key={m.id} className="sms"><span className="muted">SMS sent (simulated)</span>{m.content}</div>)}
+          {ticket?.messages.filter(m => m.kind === 'notification').map(m => (
+            <div key={m.id} className={`sms ${m.channel === 'email' ? 'sms--email' : ''}`}>
+              <span className="muted">{m.channel === 'email' ? 'Confirmation emailed to you' : 'Logged only (demo, nothing was sent)'}</span>{m.content}
+            </div>))}
           {ticket?.call?.transcript && <details><summary>Transcript</summary><pre className="small" style={{ whiteSpace: 'pre-wrap' }}>{ticket.call.transcript}</pre></details>}
         </div>
       )}

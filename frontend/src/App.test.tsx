@@ -6,10 +6,10 @@ import App from './App'
 const merchants = [{ id: 'M-1', name: 'Test Store', owner_name: 'Owner', category: 'Kirana', city: 'Delhi' }]
 const ticket = {
   id: 7, merchant_id: 'M-1', merchant_name: 'Test Store', channel: 'voice', status: 'resolved', category: 'failed_payment', resolved_by: 'ai',
-  created_at: '', closed_at: '', first_message: 'Voice call', escalation_reason: null, resolution_summary: 's', escalation: null,
+  created_at: '', closed_at: '', first_message: 'Voice call', escalation_reason: null, resolution_summary: 's', has_email: true, escalation: null,
   call: { status: 'completed', phone_last4: '3210', transcript: 'assistant: hello', duration_seconds: 40, created_at: '', ended_at: '' },
   actions: [{ id: 1, step: 1, tool: 'initiate_refund', args: {}, result: {}, allowed: true, created_at: '' }],
-  messages: [{ id: 2, role: 'agent', kind: 'notification', content: 'Refund of INR 850 initiated.', created_at: '' }],
+  messages: [{ id: 2, role: 'agent', kind: 'notification', channel: 'email', content: 'Refund of INR 850 initiated.', created_at: '' }],
 }
 
 afterEach(() => vi.unstubAllGlobals())
@@ -25,12 +25,15 @@ test('merchant starts a call and sees the steps and outcome', async () => {
   const call = screen.getByRole('button', { name: 'Call me' })
   expect(call).toBeDisabled()
   await userEvent.type(screen.getByLabelText(/Your phone number/), '+919876543210')
+  expect(call).toBeDisabled()  // the confirmation email is required too
+  await userEvent.type(screen.getByLabelText(/Email for your confirmation/), 'owner@example.com')
   await userEvent.click(call)
   expect(await screen.findByText('Refunding the payment')).toBeInTheDocument()
   expect(screen.getByText('Call finished: your issue is resolved')).toBeInTheDocument()
   expect(screen.getByText('Refund of INR 850 initiated.')).toBeInTheDocument()
+  expect(screen.getByText('Confirmation emailed to you')).toBeInTheDocument()
   const post = fetchMock.mock.calls.find(([u]) => String(u).endsWith('/calls'))!
-  expect(JSON.parse((post[1] as RequestInit).body as string)).toEqual({ merchant_id: 'M-1', phone: '+919876543210' })
+  expect(JSON.parse((post[1] as RequestInit).body as string)).toEqual({ merchant_id: 'M-1', phone: '+919876543210', email: 'owner@example.com' })
 })
 
 test('a number without a country code cannot be called', async () => {

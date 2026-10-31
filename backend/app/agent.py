@@ -32,6 +32,8 @@ RISK_PATTERNS = [
     (re.compile(r"\b(fraud|fraudulent|scam|scammed|hacked|cheated|stolen|phishing)\b", re.I), "fraud_or_legal"),
     (re.compile(r"\b(legal|lawyer|advocate|sue|suing|court|police|fir|consumer forum|consumer court|rbi complaint|ombudsman)\b", re.I),
      "fraud_or_legal"),
+    # Hindi (Devanagari) and common romanised forms; no \b because Devanagari vowel signs are not word characters to `re`
+    (re.compile(r"(धोखा|धोखाधड़ी|ठगी|ठग|हैक|चोरी|पुलिस|वकील|कोर्ट|अदालत|कानूनी|dhokha|dhokhadhadi|thagi|hack ho|police|vakil)", re.I), "fraud_or_legal"),
 ]
 
 

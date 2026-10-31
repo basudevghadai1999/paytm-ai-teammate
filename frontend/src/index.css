@@ -87,3 +87,6 @@ th, td { padding:10px 8px; border-bottom:1px solid var(--line) } tbody tr { curs
 .thread { padding-left:18px; margin:0 } .trace { padding-left:20px; margin:0 } .trace li { margin-bottom:8px }
 .trace pre { margin:3px 0 0; white-space:pre-wrap; word-break:break-word; font-size:12px; background:var(--tint-2); border:1px solid var(--line); padding:7px 9px; border-radius:10px }
 .trace li.blocked pre { background:var(--bad-bg); border-color:#f3c3c3 }
+
+.call__email { display:flex; flex-direction:column; gap:6px; font-weight:600; font-size:13px }
+.sms--email { border-style:solid; border-color:var(--ok); background:var(--ok-bg) }

@@ -1,5 +1,6 @@
 import os
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,6 +27,11 @@ class Settings(BaseSettings):
     bolna_paytm_agent_id: str = ""  # a NEW agent for this app; never the COOLops agent (BOLNA_AGENT_ID)
     bolna_webhook_secret: str = ""  # bearer secret Bolna sends to our tool endpoints
     demo_call_allowlist: str = ""   # comma-separated E.164 numbers the demo may dial; empty = disabled in production
+
+    resend_api_key: str = Field("", validation_alias=AliasChoices("RESEND_API_KEY", "RESEND_API"))
+    # Resend's sandbox sender only delivers to the Resend account owner; set EMAIL_FROM to an address on a verified domain to email merchants
+    email_from: str = "Paytm AI Teammate <onboarding@resend.dev>"
+    support_alert_email: str = ""  # human support inbox for emergency escalations; empty = no alert email
 
     auto_refund_limit_inr: int = 2000
     agent_step_limit: int = 8

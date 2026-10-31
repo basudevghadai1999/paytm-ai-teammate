@@ -19,3 +19,6 @@ services:
       - {key: BOLNA_PAYTM_AGENT_ID, sync: false}    # a NEW Bolna agent; never the COOLops agent
       - {key: BOLNA_WEBHOOK_SECRET, sync: false}      # must equal the value in backend/.env, which apply_agent writes into Bolna
       - {key: DEMO_CALL_ALLOWLIST, sync: false}     # comma-separated E.164 numbers the demo may dial; empty disables calls
+      - {key: RESEND_API_KEY, sync: false}
+      - {key: EMAIL_FROM, sync: false}              # e.g. Paytm AI Teammate <support@your-verified-domain>; unset = Resend sandbox sender
+      - {key: SUPPORT_ALERT_EMAIL, sync: false}     # human support inbox that gets emergency escalations

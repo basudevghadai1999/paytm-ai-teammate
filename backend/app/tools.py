@@ -3,10 +3,12 @@
 The merchant id is never a tool parameter. It comes from the ticket (BR-06, FR-310).
 """
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, Callable
 
 from app.core.config import settings
+from app import mailer
 from app.core.db import Db
 
 CATEGORIES = ["settlement_delay", "failed_payment", "refund_request", "device_fault", "other"]
@@ -15,6 +17,7 @@ ESCALATION_REASONS = [
     "unclear_request", "ineligible_request", "tool_failure", "step_limit", "llm_unavailable", "call_dropped", "other",
 ]
 MAX_CLARIFICATIONS = 1  # BR-08
+EMERGENCY_REASONS = {"fraud_or_legal", "abusive_or_distressed"}  # also alert the human support inbox
 
 MERCHANT_ESCALATION_NOTE = (
     "I've passed this to our support team with all the details, so you won't need to explain it again. "
@@ -106,6 +109,15 @@ def raise_device_replacement(c: Ctx, a: dict) -> dict:
     return {"request_id": f"RPL-{m['device_id']}", "device_id": m["device_id"], "status": "replacement_requested"}
 
 
+def _contact(c: Ctx) -> str | None:
+    return (c.d.one("select contact_email from tm_tickets where id = :t", t=c.ticket_id) or {}).get("contact_email")
+
+
+def _record(c: Ctx, text: str, channel: str, provider_id: str | None = None) -> None:
+    c.d.run("insert into tm_messages (ticket_id, role, kind, content, channel, provider_id) values (:t, 'agent', 'notification', :c, :ch, :p)",
+            t=c.ticket_id, c=text, ch=channel, p=provider_id)
+
+
 def send_notification(c: Ctx, a: dict) -> dict:
     text = str(a["message"]).strip()
     if not text:
@@ -114,9 +126,45 @@ def send_notification(c: Ctx, a: dict) -> dict:
                   t=c.ticket_id, c=text)
     if dup:
         raise Refused("This exact notification was already sent on this ticket.")
-    c.d.run("insert into tm_messages (ticket_id, role, kind, content) values (:t, 'agent', 'notification', :c)",
-            t=c.ticket_id, c=text)
-    return {"sent": True, "channel": "simulated_sms"}
+    to = _contact(c)
+    if to and mailer.configured():
+        try:
+            pid = mailer.send(to, f"Your Paytm support update (ticket #{c.ticket_id})", text)
+        except mailer.MailError:
+            raise Refused("The confirmation email could not be sent. Do not tell the merchant an email was sent.")
+        _record(c, text, "email", pid)
+        return {"sent": True, "channel": "email"}
+    _record(c, text, "simulated")
+    return {"sent": True, "channel": "simulated",
+            "note": "No email address on file, so this was only logged. Do not tell the merchant an email or SMS was sent."}
+
+
+def _ack_email(c: Ctx, subject: str, text: str) -> None:
+    """Acknowledgement the code sends itself, so it never depends on the model. Best effort: a mail failure never blocks the ticket."""
+    to = _contact(c)
+    if not to or not mailer.configured():
+        return
+    if c.d.one("select 1 as x from tm_messages where ticket_id = :t and channel = 'email'", t=c.ticket_id):
+        return  # the merchant already has an email about this ticket
+    try:
+        pid = mailer.send(to, subject, text)
+    except mailer.MailError:
+        return
+    _record(c, text, "email", pid)
+
+
+def _alert_support(c: Ctx, esc_id: int, reason: str, summary: str, steps: list, rec: str) -> None:
+    if reason not in EMERGENCY_REASONS or not settings.support_alert_email or not mailer.configured():
+        return
+    m = c.d.one("select m.name, m.city from tm_tickets t join tm_merchants m on m.id = t.merchant_id where t.id = :t", t=c.ticket_id)
+    body = (f"Emergency escalation, ticket #{c.ticket_id}\nMerchant: {m['name']} ({m['city']})\nReason: {reason.replace('_', ' ')}\n\n"
+            f"Summary: {summary}\n\nSteps attempted: {'; '.join(map(str, steps)) or 'none'}\n\nRecommended action: {rec}\n\n"
+            f"Open the ops console to review the full call and agent steps: {settings.public_base_url}")
+    try:
+        mailer.send(settings.support_alert_email, f"[URGENT] Paytm support escalation #{c.ticket_id}: {reason.replace('_', ' ')}", body)
+    except mailer.MailError:
+        return
+    c.d.run("update tm_escalations set alerted_at = now() where id = :e", e=esc_id)
 
 
 def ask_merchant(c: Ctx, a: dict) -> dict:
@@ -153,6 +201,9 @@ def _claims_ok(c: Ctx, reply: str) -> bool:
         return False
     if "replacement" in low and "raise_device_replacement" not in kinds:
         return False
+    if re.search(r"e-?mail|sms|text message", low) and not c.d.one(
+            "select 1 as x from tm_messages where ticket_id = :t and channel = 'email'", t=c.ticket_id):
+        return False
     return True
 
 
@@ -170,6 +221,7 @@ def resolve_ticket(c: Ctx, a: dict) -> dict:
     c.d.run("insert into tm_messages (ticket_id, role, content) values (:t, 'agent', :c)", t=c.ticket_id, c=reply)
     c.d.run("update tm_tickets set status = 'resolved', category = :cat, resolution_summary = :s,"
             " resolved_by = 'ai', closed_at = now() where id = :t", t=c.ticket_id, cat=cat, s=summary)
+    _ack_email(c, f"Your Paytm support request is resolved (ticket #{c.ticket_id})", reply)
     return {"status": "resolved", "reply": reply}
 
 
@@ -183,12 +235,15 @@ def escalate_to_human(c: Ctx, a: dict) -> dict:
     if not summary or not rec or not isinstance(steps, list):
         raise Refused("summary, steps_attempted (list) and recommended_action are required.")
     cat = a.get("category") if a.get("category") in CATEGORIES else None
-    c.d.run("insert into tm_escalations (ticket_id, reason, summary, attempted_steps, recommended_action)"
-            " values (:t, :r, :s, cast(:st as jsonb), :rec)", t=c.ticket_id, r=reason, s=summary, st=_s(steps), rec=rec)
+    esc = c.d.one("insert into tm_escalations (ticket_id, reason, summary, attempted_steps, recommended_action)"
+                  " values (:t, :r, :s, cast(:st as jsonb), :rec) returning id", t=c.ticket_id, r=reason, s=summary, st=_s(steps), rec=rec)
     # fixed wording: the model must not promise outcomes to the merchant (FR-105)
     c.d.run("insert into tm_messages (ticket_id, role, content) values (:t, 'agent', :c)", t=c.ticket_id, c=MERCHANT_ESCALATION_NOTE)
     c.d.run("update tm_tickets set status = 'escalated', category = coalesce(:cat, category) where id = :t",
             t=c.ticket_id, cat=cat)
+    _ack_email(c, f"We have your Paytm support request (ticket #{c.ticket_id})",
+               MERCHANT_ESCALATION_NOTE + f"\n\nYour ticket number is {c.ticket_id}.")
+    _alert_support(c, esc["id"], reason, summary, steps, rec)
     return {"status": "escalated", "reason": reason}
 
 
@@ -217,7 +272,7 @@ TOOL_SCHEMAS = [
         {"transaction_id": _STR, "reason": _STR}, ["transaction_id"]),
     _fn("raise_device_replacement", "Raise a soundbox replacement. Only allowed when the device status is faulty.",
         {"reason": _STR}, []),
-    _fn("send_notification", "Send an SMS/WhatsApp-style message to the merchant (simulated).", {"message": _STR}, ["message"]),
+    _fn("send_notification", "Send the merchant a written confirmation by email. The result says whether it was really emailed (channel email) or only logged (channel simulated).", {"message": _STR}, ["message"]),
     _fn("ask_merchant", "Ask the merchant ONE clarifying question when key information is missing. Pauses the ticket.",
         {"question": _STR}, ["question"]),
     _fn("resolve_ticket", "Close the ticket. Only after the needed actions are done and confirmed by tool results.",

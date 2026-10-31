@@ -44,8 +44,8 @@ def _place(store, ud):
     return eid
 
 
-def start(merchant="M-PRIYA", phone="+919876543210"):
-    r = client.post("/api/v1/calls", json={"merchant_id": merchant, "phone": phone})
+def start(merchant="M-PRIYA", phone="+919876543210", email="owner@example.com"):
+    r = client.post("/api/v1/calls", json={"merchant_id": merchant, "phone": phone, "email": email})
     return r
 
 
@@ -66,6 +66,18 @@ def test_call_refused_for_number_outside_allowlist(executions):
     assert start(phone="+919000000000").status_code == 403
     assert start(phone="98765").status_code == 422
     assert executions == {}
+
+
+def test_call_needs_a_valid_email(executions):
+    assert start(email="not-an-email").status_code == 422
+    assert start(email="").status_code == 422
+    assert executions == {}
+
+
+def test_ticket_detail_never_returns_the_address(executions):
+    r = start()
+    d = client.get(f"/api/v1/tickets/{r.json()['ticket_id']}").json()
+    assert d["has_email"] is True and "contact_email" not in d and "owner@example.com" not in str(d)
 
 
 def test_production_with_empty_allowlist_disables_calls(executions, monkeypatch):

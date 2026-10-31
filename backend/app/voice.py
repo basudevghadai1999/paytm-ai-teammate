@@ -8,6 +8,7 @@ from fastapi import APIRouter, Body, Header, HTTPException
 from pydantic import BaseModel
 
 from app import bolna
+from app.agent import risk_reason
 from app.core.config import settings
 from app.core.db import db
 from app.tools import MERCHANT_ESCALATION_NOTE, Ctx, execute
@@ -20,9 +21,13 @@ _calls_log: list[float] = []
 _verified: dict[str, str] = {}  # telephony call id -> Bolna execution id, so a call is confirmed with Bolna once
 
 
+EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]+\.[^@\s]{2,}$")
+
+
 class NewCall(BaseModel):
     merchant_id: str
     phone: str
+    email: str  # where the confirmation goes; typed in the form, because an address spoken over the phone is easily misheard
 
 
 def _norm(s: str) -> str:
@@ -39,6 +44,9 @@ def start_call(body: NewCall) -> dict:
     phone = body.phone.replace(" ", "")
     if not E164.match(phone):
         raise HTTPException(422, "Enter the number with country code, for example +919876543210")
+    email = body.email.strip()
+    if len(email) > 254 or not EMAIL.match(email):
+        raise HTTPException(422, "Enter a valid email address for the confirmation")
     allow = _allowed_numbers()
     if allow and phone not in allow or (not allow and settings.environment == "production"):
         raise HTTPException(403, "Calls to this number are not enabled for the demo")
@@ -54,7 +62,7 @@ def start_call(body: NewCall) -> dict:
         m = d.one("select id, name, owner_name from tm_merchants where id = :m", m=body.merchant_id)
         if not m:
             raise HTTPException(404, "Unknown merchant")
-        t = d.one("insert into tm_tickets (merchant_id, channel) values (:m, 'voice') returning id", m=m["id"])
+        t = d.one("insert into tm_tickets (merchant_id, channel, contact_email) values (:m, 'voice', :e) returning id", m=m["id"], e=email)
     try:
         eid = bolna.place_call(phone, {"merchant_name": m["name"], "owner_name": m["owner_name"]})
     except bolna.BolnaError:
@@ -147,7 +155,18 @@ def call_event(body: dict = Body(...)) -> dict:
         else:  # a late 'ringing' never moves a finished call backwards
             d.run("update tm_calls set status = :s where provider_call_id = :c and ended_at is null", s=status, c=eid)
         t = d.one("select status from tm_tickets where id = :t for update", t=call["ticket_id"])
-        if terminal and t["status"] in ("open", "awaiting_merchant"):  # hung up or never answered: never end silently
+        said = " ".join(ln.split(":", 1)[1] for ln in str(ex.get("transcript") or "").splitlines() if ln.strip().lower().startswith("user:"))
+        risk = risk_reason(said) if terminal else None
+        if risk and t["status"] != "escalated":
+            # safety net: the merchant spoke of fraud or legal action but the agent did not escalate. Reopen and hand to a person.
+            step = d.one("select coalesce(max(step), 0) + 1 as s from tm_actions where ticket_id = :t", t=call["ticket_id"])["s"]
+            d.run("update tm_tickets set resolved_by = null, closed_at = null where id = :t", t=call["ticket_id"])
+            execute(Ctx(d, call["ticket_id"], call["merchant_id"], step), "escalate_to_human", {
+                "reason": risk,
+                "summary": "The merchant mentioned fraud or legal action on the call. The agent did not escalate during the call, so the post-call screen did.",
+                "steps_attempted": [a["tool"] for a in d.all("select tool from tm_actions where ticket_id = :t and allowed order by id", t=call["ticket_id"])] or ["None"],
+                "recommended_action": "Review the call transcript, contact the merchant, and check recent account activity."})
+        elif terminal and t["status"] in ("open", "awaiting_merchant"):  # hung up or never answered: never end silently
             step = d.one("select coalesce(max(step), 0) + 1 as s from tm_actions where ticket_id = :t", t=call["ticket_id"])["s"]
             execute(Ctx(d, call["ticket_id"], call["merchant_id"], step), "escalate_to_human", {
                 "reason": "call_dropped",
