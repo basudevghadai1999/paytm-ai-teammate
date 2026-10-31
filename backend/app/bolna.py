@@ -35,6 +35,7 @@ How to work:
 - Finish by calling resolve_ticket (or escalate_to_human) before you say goodbye, and state only outcomes that tool results confirm. Then end the call politely."""
 
 TRANSCRIBER_LANGUAGE = "hi"  # Deepgram nova-3 Hindi; also copes with Hindi-English mixing
+VOICE_LANGUAGE = "hi"  # Sarvam bulbul:v3; the voice and model stay as chosen in Bolna
 TRANSCRIBER_KEYWORDS = ("Paytm, settlement, refund, soundbox, UPI, QR, transaction, KYC, merchant, "
                         "payment failed, money debited, replacement, Paytm Soundbox")
 WELCOME = "Namaste! This is the Paytm support assistant. How can I help you today?"
@@ -122,6 +123,9 @@ def apply_agent(base_url: str) -> dict:
     # only language and keywords change; provider, model, endpointing and the rest stay as configured in Bolna
     conv["tools_config"]["transcriber"] = {**(conv["tools_config"].get("transcriber") or {}),
                                            "language": TRANSCRIBER_LANGUAGE, "keywords": TRANSCRIBER_KEYWORDS}
+    synth = conv["tools_config"].get("synthesizer")
+    if synth and synth.get("provider_config") is not None:
+        synth["provider_config"] = {**synth["provider_config"], "language": VOICE_LANGUAGE}
     keep = ("agent_name", "agent_type", "ingest_source_config", "calling_guardrails", "call_summary_enabled")
     cfg = {k: agent[k] for k in keep if agent.get(k) is not None}
     cfg["agent_welcome_message"] = WELCOME
