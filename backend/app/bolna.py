@@ -7,7 +7,7 @@ import json
 
 import httpx
 
-from app.agent import DECISION_GUIDE
+from app.agent import DECISION_GUIDE, SCOPE
 from app.core.config import settings
 from app.tools import TOOL_SCHEMAS
 
@@ -19,6 +19,8 @@ class BolnaError(Exception):
 VOICE_TOOLS = [t["function"]["name"] for t in TOOL_SCHEMAS if t["function"]["name"] != "ask_merchant"]  # on a call the agent just asks aloud
 
 VOICE_PROMPT = f"""You are the Paytm AI Teammate on a phone call with {{merchant_name}}, a Paytm merchant in India. You are speaking, not typing.
+
+{SCOPE.replace('call resolve_ticket with category out_of_scope', 'say goodbye after calling resolve_ticket with category out_of_scope')}
 
 How to talk:
 - Short spoken sentences, no lists, no symbols, no markdown. Say amounts as "twelve thousand four hundred rupees".

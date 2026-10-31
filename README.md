@@ -24,6 +24,7 @@ Ops console (React) ──> /api/v1/tickets, /metrics        simulated systems (
 - **Never ends silently.** A call that drops before resolution escalates as `call_dropped`; an LLM outage escalates; a step limit escalates.
 - **Confirmation by email.** The merchant types an email address in the call form (a spoken address is easily misheard). When the ticket resolves or escalates, the code itself sends an acknowledgement, and the agent's own `send_notification` is a real email too. The reply may only claim an email was sent if one really was.
 - **Emergencies reach a human.** Fraud, a hacked account, legal threats and abusive or distressed merchants escalate straight away, and the support inbox (`SUPPORT_ALERT_EMAIL`) gets an urgent email with the case summary. As a safety net, after every call the merchant's side of the transcript (English and Hindi) is screened; if the agent missed an emergency, the ticket is reopened and escalated.
+- **Stays in its lane.** The agent only handles Paytm merchant support. A request about anything else (weather, jokes, general knowledge, other companies, advice) gets a short friendly redirect to what it can do, without answering or touching any tool; a second off-topic message closes the ticket politely as `out_of_scope`, never as a human escalation. A message that mixes an off-topic part with a real issue gets the real issue handled and only the rest declined. Out-of-scope tickets are counted separately and kept out of the auto-resolution rate.
 - **Everything is audited** in `tm_actions` (allowed or blocked) and shown in the ops console, together with the call transcript.
 
 ## Screens
@@ -78,7 +79,7 @@ Because the database is shared with COOLops, migrations create only `tm_*` table
 
 ## Evals
 
-`python -m evals.run_evals` (from `backend/`) resets the seed data and runs the 10 scenarios from `docs/DEMO_AND_EVALS.md` against the real model, then prints correct-decision rate, auto-resolution rate, blocked and unsafe actions, and average resolution time. Last run: 10 of 10 decisions correct, 0 unsafe actions, about 4 seconds per AI-resolved ticket.
+`python -m evals.run_evals` (from `backend/`) resets the seed data and runs the 12 scenarios (the 10 in `docs/DEMO_AND_EVALS.md` plus two off-topic ones) against the real model, then prints correct-decision rate, auto-resolution rate, blocked and unsafe actions, and average resolution time. Last run: 12 of 12 decisions correct, 0 unsafe actions. Model latency varies a lot: an AI-resolved ticket took about 4 seconds in one run and over 40 in another.
 
 The auto-resolution rate over the whole set is about 40%, because half the scenarios are meant to escalate or be blocked; the PRD's 70% target only makes sense over the resolvable scenarios.
 

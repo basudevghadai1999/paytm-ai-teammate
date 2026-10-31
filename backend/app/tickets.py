@@ -44,8 +44,9 @@ def resolve_escalation(d: Db, escalation_id: int, note: str) -> bool:
 
 
 def metrics(d: Db) -> dict:
-    c = d.one("select count(*) as total,"
-              " count(*) filter (where resolved_by = 'ai') as resolved_ai,"
+    c = d.one("select count(*) filter (where category is distinct from 'out_of_scope') as total,"
+              " count(*) filter (where category = 'out_of_scope') as out_of_scope,"
+              " count(*) filter (where resolved_by = 'ai' and category is distinct from 'out_of_scope') as resolved_ai,"
               " count(*) filter (where resolved_by = 'human') as resolved_human,"
               " count(*) filter (where status = 'escalated') as escalated_open,"
               " count(*) filter (where status in ('open','awaiting_merchant')) as in_progress,"
@@ -58,7 +59,7 @@ def metrics(d: Db) -> dict:
                    " and (result->>'amount_inr')::int > :lim", lim=settings.auto_refund_limit_inr)["n"]
     total = c["total"]
     return {
-        "total_tickets": total, "resolved_by_ai": c["resolved_ai"], "resolved_by_human": c["resolved_human"],
+        "total_tickets": total, "out_of_scope": c["out_of_scope"], "resolved_by_ai": c["resolved_ai"], "resolved_by_human": c["resolved_human"],
         "escalated_open": c["escalated_open"], "in_progress": c["in_progress"],
         "auto_resolution_rate": (c["resolved_ai"] / total) if total else None,
         "avg_ai_resolution_seconds": float(c["avg_ai_seconds"]) if c["avg_ai_seconds"] is not None else None,

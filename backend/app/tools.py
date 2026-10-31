@@ -11,7 +11,7 @@ from app.core.config import settings
 from app import mailer
 from app.core.db import Db
 
-CATEGORIES = ["settlement_delay", "failed_payment", "refund_request", "device_fault", "other"]
+CATEGORIES = ["settlement_delay", "failed_payment", "refund_request", "device_fault", "out_of_scope", "other"]
 ESCALATION_REASONS = [
     "refund_above_limit", "settlement_on_hold", "fraud_or_legal", "abusive_or_distressed",
     "unclear_request", "ineligible_request", "tool_failure", "step_limit", "llm_unavailable", "call_dropped", "other",
@@ -221,7 +221,8 @@ def resolve_ticket(c: Ctx, a: dict) -> dict:
     c.d.run("insert into tm_messages (ticket_id, role, content) values (:t, 'agent', :c)", t=c.ticket_id, c=reply)
     c.d.run("update tm_tickets set status = 'resolved', category = :cat, resolution_summary = :s,"
             " resolved_by = 'ai', closed_at = now() where id = :t", t=c.ticket_id, cat=cat, s=summary)
-    _ack_email(c, f"Your Paytm support request is resolved (ticket #{c.ticket_id})", reply)
+    if cat != "out_of_scope":  # nothing to acknowledge when the merchant only asked about something we do not handle
+        _ack_email(c, f"Your Paytm support request is resolved (ticket #{c.ticket_id})", reply)
     return {"status": "resolved", "reply": reply}
 
 

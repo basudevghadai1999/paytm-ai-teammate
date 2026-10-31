@@ -20,7 +20,8 @@ function MetricsView({ m }: { m: Metrics }) {
   const cards: [string, string][] = [
     ['Auto-resolution rate', fmtPct(m.auto_resolution_rate)],
     ['Avg AI resolution time', fmtSeconds(m.avg_ai_resolution_seconds)],
-    ['Tickets', String(m.total_tickets)],
+    ['Support tickets', String(m.total_tickets)],
+    ['Out of scope', String(m.out_of_scope)],
     ['Open escalations', String(m.escalated_open)],
     ['Blocked actions', String(m.blocked_actions)],
     ['Unsafe actions', String(m.unsafe_actions)],

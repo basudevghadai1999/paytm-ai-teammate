@@ -165,3 +165,9 @@ def test_hindi_fraud_words_are_caught(ended_call):
     client.post("/api/v1/voice/events", json={"id": "ex1"})
     with db() as d:
         assert d.one("select status from tm_tickets where id=:t", t=tid)["status"] == "escalated"
+
+
+def test_out_of_scope_close_sends_no_acknowledgement_email(outbox):
+    tid = ticket()
+    _, ok = run(tid, "resolve_ticket", category="out_of_scope", summary="s", reply_to_merchant="I can only help with Paytm support.")
+    assert ok and outbox == []

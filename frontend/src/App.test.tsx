@@ -45,7 +45,7 @@ test('a number without a country code cannot be called', async () => {
 })
 
 test('the ops console shows an empty state', async () => {
-  const metrics = { total_tickets: 0, resolved_by_ai: 0, resolved_by_human: 0, escalated_open: 0, in_progress: 0, auto_resolution_rate: null,
+  const metrics = { total_tickets: 0, out_of_scope: 0, resolved_by_ai: 0, resolved_by_human: 0, escalated_open: 0, in_progress: 0, auto_resolution_rate: null,
     avg_ai_resolution_seconds: null, escalations_by_reason: [], blocked_actions: 0, unsafe_actions: 0, refund_limit_inr: 2000 }
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/metrics') ? metrics : []), { status: 200 })))
   render(<App />)

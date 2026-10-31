@@ -86,3 +86,22 @@ def test_metrics_counts():
         m = metrics(d)
     assert m["total_tickets"] == 1 and m["blocked_actions"] == 1 and m["unsafe_actions"] == 0
     assert m["escalations_by_reason"][0]["reason"] == "refund_above_limit"
+
+
+def test_out_of_scope_close_is_excluded_from_the_rate():
+    tid = new_ticket("M-SHARMA", "tell me a joke")
+    run_ticket(tid, ScriptedLLM([msg(call("resolve_ticket", category="out_of_scope", summary="off topic",
+                                          reply_to_merchant="I can only help with Paytm settlements, payments and soundbox. How can I help?"))]))
+    assert ticket(tid)["status"] == "resolved"
+    other = new_ticket("M-SHARMA", "where is my settlement")
+    run_ticket(other, ScriptedLLM([msg(call("resolve_ticket", category="settlement_delay", summary="s", reply_to_merchant="Expected tomorrow."))]))
+    with db() as d:
+        m = metrics(d)
+    assert m["total_tickets"] == 1 and m["out_of_scope"] == 1 and m["resolved_by_ai"] == 1 and m["auto_resolution_rate"] == 1.0
+
+
+def test_prompts_carry_the_scope_rule():
+    from app import bolna
+    from app.agent import SYSTEM_PROMPT
+    for p in (SYSTEM_PROMPT, bolna.VOICE_PROMPT):
+        assert "Scope:" in p and "out_of_scope" in p and "do not answer it" in p

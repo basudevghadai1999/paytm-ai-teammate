@@ -7,7 +7,7 @@ export type CallInfo = { status: string; phone_last4: string | null; transcript:
 export type TicketRow = { id: number; merchant_name: string; channel: 'chat' | 'voice'; status: TicketStatus; category: string | null; resolved_by: 'ai' | 'human' | null; created_at: string; closed_at: string | null; first_message: string | null; escalation_reason: string | null }
 export type Ticket = TicketRow & { merchant_id: string; resolution_summary: string | null; has_email: boolean; call: CallInfo | null; messages: Message[]; actions: Action[]; escalation: Escalation | null }
 export type Metrics = {
-  total_tickets: number; resolved_by_ai: number; resolved_by_human: number; escalated_open: number; in_progress: number
+  total_tickets: number; out_of_scope: number; resolved_by_ai: number; resolved_by_human: number; escalated_open: number; in_progress: number
   auto_resolution_rate: number | null; avg_ai_resolution_seconds: number | null
   escalations_by_reason: { reason: string; n: number }[]; blocked_actions: number; unsafe_actions: number; refund_limit_inr: number
 }
