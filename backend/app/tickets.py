@@ -17,7 +17,7 @@ def ticket_detail(d: Db, ticket_id: int) -> dict | None:
     t["messages"] = d.all("select id, role, kind, channel, content, created_at from tm_messages where ticket_id = :t order by id", t=ticket_id)
     t["actions"] = d.all("select id, step, tool, args, result, allowed, created_at from tm_actions where ticket_id = :t order by id",
                          t=ticket_id)
-    t["call"] = d.one("select status, phone_last4, transcript, duration_seconds, created_at, ended_at from tm_calls"
+    t["call"] = d.one("select status, phone_last4, transcript, duration_seconds, transfer_status, transfer_failure, created_at, ended_at from tm_calls"
                       " where ticket_id = :t order by id desc limit 1", t=ticket_id)
     t["escalation"] = d.one("select * from tm_escalations where ticket_id = :t order by id desc limit 1", t=ticket_id)
     return t

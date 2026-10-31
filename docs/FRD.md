@@ -28,6 +28,7 @@ Priority: **M** = must have, **S** = should have, **C** = could have (stretch).
 | FR-105 | When escalated, the merchant is told a person will follow up, and receives an acknowledgement email. | M |
 | FR-106 | Voice in Hindi and English: the transcriber and the voice are set to Hindi, and the agent mirrors the merchant's language. | M |
 | FR-107 | An inbound number the merchant can dial. | C |
+| FR-108 | On an emergency, the live call is transferred to a human support number when one is configured (FR-1007). | M |
 
 ### 2.2 Agent behaviour
 | ID | Requirement | Pri |
@@ -119,6 +120,7 @@ Priority: **M** = must have, **S** = should have, **C** = could have (stretch).
 | FR-1004 | A reply that mentions an email or SMS is replaced by the confirmed outcomes unless an email was really sent (BR-12). | M |
 | FR-1005 | An emergency escalation (`fraud_or_legal`, `abusive_or_distressed`) emails the human support inbox (`SUPPORT_ALERT_EMAIL`) an urgent message with the summary, steps attempted and recommended action, and marks the escalation as alerted. | M |
 | FR-1006 | After every call, the merchant's side of the transcript is screened for fraud or legal wording in English and Hindi. If the agent had not escalated, the ticket is reopened and escalated, and support is alerted (BR-15). The agent's own words are not screened. | M |
+| FR-1007 | With `SUPPORT_TRANSFER_NUMBER` set, an emergency escalation on a live call is transferred to that number through Bolna's transfer tool. Other escalations stay callbacks. The destination is fixed in the agent's configuration, the app records only what Bolna reports (requested, attempted, transferred, failed), and a failed or unanswered transfer emails support to call the merchant back now. | M |
 
 ## 3. Key workflows
 

@@ -4,6 +4,7 @@ Patterned on the COOLops integration. Never point BOLNA_PAYTM_AGENT_ID at the CO
 """
 import copy
 import json
+import re
 
 import httpx
 
@@ -42,6 +43,23 @@ TRANSCRIBER_LANGUAGE = "hi"  # Deepgram nova-3 Hindi; also copes with Hindi-Engl
 VOICE_LANGUAGE = "hi"  # Sarvam bulbul:v3; the voice and model stay as chosen in Bolna
 TRANSCRIBER_KEYWORDS = ("Paytm, settlement, refund, soundbox, UPI, QR, transaction, KYC, merchant, "
                         "payment failed, money debited, replacement, Paytm Soundbox")
+E164 = re.compile(r"^\+[1-9]\d{7,14}$")
+TRANSFER_TOOL = "transfer_call_support"  # Bolna's built-in transfer tool; Bolna, not this app, bridges the call
+
+
+def transfer_number() -> str | None:
+    n = re.sub(r"[\s()-]", "", settings.support_transfer_number or "")
+    return n if E164.match(n) else None
+
+
+TRANSFER_PROMPT = """- LIVE TRANSFER (emergencies only): when escalate_to_human returns transfer true, say exactly what its say field says, then immediately call transfer_call_support. When transfer is not true, tell the merchant a person will call them back, and never call transfer_call_support."""
+
+
+def voice_prompt() -> str:
+    """The base prompt, plus the live-transfer rule only when a support number is configured (without one the tool does not exist)."""
+    return VOICE_PROMPT + ("\n" + TRANSFER_PROMPT if transfer_number() else "")
+
+
 WELCOME = "Namaste! This is the Paytm support assistant. How can I help you today?"
 
 
@@ -103,6 +121,12 @@ def tool_definitions(base_url: str) -> list[dict]:
                     "pre_call_message": "One moment please.",
                     "value": {"method": "POST", "url": f"{root}/{f['name']}",
                               "param": {"call_id": "%(call_sid)s", **{k: f"%({k})s" for k in props}}, **auth}})
+    dest = transfer_number()
+    if dest:  # the destination is fixed here, in the agent's own config: the model can never choose where a call goes
+        out.append({"name": TRANSFER_TOOL, "key": "transfer_call", "pre_call_message": "Connecting you to our support team now. Please stay on the line.",
+                    "description": "Transfer this call to the human support team. Use ONLY right after escalate_to_human returned transfer true.",
+                    "parameters": {"type": "object", "properties": {"call_sid": {"type": "string", "description": "unique call id"}}, "required": ["call_sid"]},
+                    "value": {"method": "POST", "url": None, "api_token": None, "param": {"call_transfer_number": dest, "call_sid": "%(call_sid)s"}}})
     return out
 
 
@@ -134,7 +158,7 @@ def apply_agent(base_url: str) -> dict:
     cfg = {k: agent[k] for k in keep if agent.get(k) is not None}
     cfg["agent_welcome_message"] = WELCOME
     body = {"agent_config": {**cfg, "tasks": tasks, "webhook_url": f"{base_url.rstrip('/')}/api/v1/voice/events"},
-            "agent_prompts": {**(agent.get("agent_prompts") or {}), f"task_{tasks.index(conv) + 1}": {"system_prompt": VOICE_PROMPT}}}
+            "agent_prompts": {**(agent.get("agent_prompts") or {}), f"task_{tasks.index(conv) + 1}": {"system_prompt": voice_prompt()}}}
     try:
         r = httpx.put(f"{settings.bolna_base_url}/v2/agent/{settings.bolna_paytm_agent_id}", headers=_h(), json=body, timeout=30)
     except httpx.HTTPError as e:

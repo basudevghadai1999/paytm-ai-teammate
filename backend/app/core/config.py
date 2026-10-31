@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     resend_api_key: str = Field("", validation_alias=AliasChoices("RESEND_API_KEY", "RESEND_API"))
     # Resend's sandbox sender only delivers to the Resend account owner; set EMAIL_FROM to an address on a verified domain to email merchants
     email_from: str = "Paytm AI Teammate <onboarding@resend.dev>"
+    support_transfer_number: str = ""  # E.164 human support line; emergencies on a live call are transferred here. Empty = callback only
     support_alert_email: str = ""  # human support inbox for emergency escalations; empty = no alert email
 
     # Google sign-in. Client id + secret + ALLOWED_EMAILS all set = only those Google accounts can use the site.

@@ -11,12 +11,16 @@ from app import bolna
 from app.agent import risk_reason
 from app.core.config import settings
 from app.core.db import db
-from app.tools import MERCHANT_ESCALATION_NOTE, Ctx, execute
+from app import mailer
+from app.tools import EMERGENCY_REASONS, MERCHANT_ESCALATION_NOTE, Ctx, execute
 
 router = APIRouter(prefix="/api/v1")
 E164 = re.compile(r"^\+[1-9]\d{7,14}$")
 UNFILLED = re.compile(r"^%\(\w+\)[sif]$")  # a Bolna placeholder the model never filled
 TERMINAL = {"completed", "call-disconnected", "no-answer", "busy", "failed", "canceled", "cancelled", "stopped", "error", "balance-low"}
+TRANSFER_SAY = "I'm connecting you to our support team now. Please stay on the line."
+XFER_LIVE = {"queued", "initiated", "ringing"}
+XFER_FAILED = {"no-answer", "busy", "failed", "canceled", "cancelled", "balance-low", "error", "stopped"}
 _calls_log: list[float] = []
 _verified: dict[str, str] = {}  # telephony call id -> Bolna execution id, so a call is confirmed with Bolna once
 
@@ -120,8 +124,62 @@ def voice_tool(tool: str, body: dict = Body(...), authorization: str | None = He
         result, ok = execute(Ctx(d, call["ticket_id"], call["merchant_id"], step), tool, args)
     out = {"ok": ok, **result}
     if ok and tool == "escalate_to_human":
-        out["say"] = MERCHANT_ESCALATION_NOTE
+        # a live transfer is for emergencies only, and only when a support number is configured; otherwise it stays a callback
+        if args.get("reason") in EMERGENCY_REASONS and bolna.transfer_number():
+            with db() as d:
+                d.run("update tm_calls set transfer_status = 'requested' where provider_call_id = :c and transfer_status is null", c=eid)
+            out.update(transfer=True, transfer_tool=bolna.TRANSFER_TOOL, say=TRANSFER_SAY)
+        else:
+            out.update(transfer=False, say=MERCHANT_ESCALATION_NOTE)
     return out
+
+
+def _norm_status(v) -> str:
+    return str(v or "").lower().replace("_", "-")
+
+
+def observe_transfer(d, call: dict, ex: dict) -> str | None:
+    """Advance the transfer from Bolna's own record of the call (`transfer_call_data`). A submitted request is never reported as
+    a completed transfer. Returns the new status when it changed."""
+    t = ex.get("transfer_call_data") or {}
+    tstat, cstat = _norm_status(t.get("status")), _norm_status(ex.get("status"))
+    cur = call.get("transfer_status")
+    if (not cur and not tstat) or cur in ("transferred", "failed"):
+        return None
+    try:
+        dur = float(t.get("duration") or 0)
+    except (TypeError, ValueError):
+        dur = 0.0
+    new, why = None, None
+    if tstat == "in-progress" or (tstat in ("completed", "call-disconnected") and dur > 0):
+        new = "transferred"
+    elif tstat in XFER_FAILED:
+        new, why = "failed", f"transfer leg {tstat}" + (f" ({t['hangup_reason']})" if t.get("hangup_reason") else "")
+    elif tstat in XFER_LIVE:
+        new = "attempted"
+    elif cstat in TERMINAL:  # the merchant's call is over and no transfer ever connected
+        new, why = "failed", ("the transfer leg ended without connecting" if tstat else "the call ended before a transfer connected")
+    if not new or new == cur:
+        return None
+    d.run("update tm_calls set transfer_status = :s, transfer_failure = :f where provider_call_id = :c", s=new, f=why, c=call["provider_call_id"])
+    if new == "failed":
+        _alert_transfer_failed(d, call, ex, why)
+    return new
+
+
+def _alert_transfer_failed(d, call: dict, ex: dict, why: str | None) -> None:
+    """Nobody picked up: tell the support inbox to call the merchant back now. The number comes from Bolna's own record, is
+    emailed to support only, and is never stored here."""
+    if not settings.support_alert_email or not mailer.configured():
+        return
+    m = d.one("select name, city from tm_merchants where id = :m", m=call["merchant_id"])
+    phone = ex.get("user_number") or (ex.get("telephony_data") or {}).get("to_number") or "not available"
+    body = (f"An emergency call could not be transferred to human support ({why or 'transfer failed'}).\n"
+            f"Call the merchant back now: {m['name']} ({m['city']}), {phone}\n\nTicket #{call['ticket_id']}: {settings.console_url or settings.public_base_url}")
+    try:
+        mailer.send(settings.support_alert_email, "[URGENT] Emergency call not transferred: call back now", body)
+    except mailer.MailError:
+        pass
 
 
 @router.post("/voice/events")
@@ -131,7 +189,7 @@ def call_event(body: dict = Body(...)) -> dict:
     if not eid:
         raise HTTPException(422, "missing execution id")
     with db() as d:
-        call = d.one("select ticket_id, merchant_id from tm_calls where provider_call_id = :c", c=eid)
+        call = d.one("select provider_call_id, ticket_id, merchant_id, transfer_status from tm_calls where provider_call_id = :c", c=eid)
     if not call:
         raise HTTPException(403, "Unknown call id")
     try:
@@ -154,6 +212,7 @@ def call_event(body: dict = Body(...)) -> dict:
                   s=status, tr=str(ex.get("transcript") or "") or None, du=dur, c=eid)
         else:  # a late 'ringing' never moves a finished call backwards
             d.run("update tm_calls set status = :s where provider_call_id = :c and ended_at is null", s=status, c=eid)
+        observe_transfer(d, call, ex)
         t = d.one("select status from tm_tickets where id = :t for update", t=call["ticket_id"])
         said = " ".join(ln.split(":", 1)[1] for ln in str(ex.get("transcript") or "").splitlines() if ln.strip().lower().startswith("user:"))
         risk = risk_reason(said) if terminal else None

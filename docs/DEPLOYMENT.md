@@ -29,6 +29,7 @@ A single free web service `paytm-teammate`, `runtime: docker`, `healthCheckPath:
 | `DEMO_CALL_ALLOWLIST` | Comma-separated E.164 numbers the demo may dial. Empty in production means calls are off |
 | `RESEND_API_KEY` | Resend key |
 | `EMAIL_FROM` | An address on a domain verified in Resend. The default sandbox sender only delivers to the Resend account owner |
+| `SUPPORT_TRANSFER_NUMBER` | Human support phone number (E.164). With it set, `apply_agent` adds the transfer tool and emergencies on a live call are bridged to this number; empty means callback only. Re-run `apply_agent` after changing it |
 | `SUPPORT_ALERT_EMAIL` | Human support inbox for emergency escalations; empty means no alert email |
 | `PUBLIC_BASE_URL` | `https://<service>.onrender.com`; written into the Bolna agent's tool and webhook URLs |
 | `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` | Cloudflare Access gate; both set turns it on (see Access control) |
@@ -57,7 +58,7 @@ The site is private: Cloudflare Access asks for an email, sends a one-time code,
 
 ## CI (GitHub Actions)
 `.github/workflows/ci.yml`, on every push and pull request:
-- **backend:** Postgres 16 service, create owner and app roles, `pip install -e 'backend[dev]'`, `alembic upgrade head`, `pytest -q` (70 tests with a scripted model and a mocked Bolna and Resend; no API keys needed). The CI database is a throwaway, not Supabase.
+- **backend:** Postgres 16 service, create owner and app roles, `pip install -e 'backend[dev]'`, `alembic upgrade head`, `pytest -q` (86 tests with a scripted model and a mocked Bolna and Resend; no API keys needed). The CI database is a throwaway, not Supabase.
 - **frontend:** Node 22, `npm ci && npm test && npm run build`.
 
 ## Shared-database safeguards

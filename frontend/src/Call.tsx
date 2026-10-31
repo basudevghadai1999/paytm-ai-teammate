@@ -26,6 +26,10 @@ const CAPS: [string, string, string][] = [
 
 function callState(t: Ticket): { text: string; kind: 'live' | 'done' | 'warn' } {
   const st = (t.call?.status ?? 'queued').toLowerCase().replace(/_/g, '-')
+  const x = t.call?.transfer_status
+  if (t.status === 'escalated' && x === 'transferred') return { text: 'Connected to our support team', kind: 'done' }
+  if (t.status === 'escalated' && (x === 'requested' || x === 'attempted') && !ENDED.includes(st)) return { text: 'Connecting you to our support team…', kind: 'live' }
+  if (t.status === 'escalated' && x === 'failed') return { text: 'Support could not take the call right now. A person will call you back', kind: 'warn' }
   if (t.status === 'resolved') return { text: 'Call finished: your issue is resolved', kind: 'done' }
   if (t.status === 'escalated') return { text: 'Call finished: a person will follow up', kind: 'warn' }
   if (ENDED.includes(st)) return { text: `Call ended (${st})`, kind: 'warn' }

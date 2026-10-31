@@ -29,3 +29,4 @@ services:
       - {key: GOOGLE_CLIENT_SECRET, sync: false}
       - {key: ALLOWED_EMAILS, sync: false}          # comma-separated Google accounts that may use the site; with the two above, turns sign-in on
       - {key: SESSION_SECRET, generateValue: true}  # signs the login cookie
+      - {key: SUPPORT_TRANSFER_NUMBER, sync: false} # E.164 human support line; emergencies on a live call are transferred here. Unset = callback only

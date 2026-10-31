@@ -81,6 +81,7 @@ function TicketDetail({ id, onChanged }: { id: number; onChanged: () => void }) 
       {t.call && (
         <div className="callbox">
           <strong>Call</strong> · {t.call.status}{t.call.duration_seconds ? ` · ${t.call.duration_seconds}s` : ''}{t.call.phone_last4 ? ` · ••••${t.call.phone_last4}` : ''}
+          {t.call.transfer_status && <div className="xfer">Live transfer to support: <b>{t.call.transfer_status}</b>{t.call.transfer_failure ? ` (${t.call.transfer_failure})` : ''}</div>}
           {t.call.transcript && <pre>{t.call.transcript}</pre>}
         </div>
       )}

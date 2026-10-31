@@ -7,7 +7,7 @@ const merchants = [{ id: 'M-1', name: 'Test Store', owner_name: 'Owner', categor
 const ticket = {
   id: 7, merchant_id: 'M-1', merchant_name: 'Test Store', channel: 'voice', status: 'resolved', category: 'failed_payment', resolved_by: 'ai',
   created_at: '', closed_at: '', first_message: 'Voice call', escalation_reason: null, resolution_summary: 's', has_email: true, escalation: null,
-  call: { status: 'completed', phone_last4: '3210', transcript: 'assistant: hello', duration_seconds: 40, created_at: '', ended_at: '' },
+  call: { status: 'completed', phone_last4: '3210', transcript: 'assistant: hello', duration_seconds: 40, transfer_status: null, transfer_failure: null, created_at: '', ended_at: '' },
   actions: [{ id: 1, step: 1, tool: 'initiate_refund', args: {}, result: {}, allowed: true, created_at: '' }],
   messages: [{ id: 2, role: 'agent', kind: 'notification', channel: 'email', content: 'Refund of INR 850 initiated.', created_at: '' }],
 }
@@ -67,4 +67,18 @@ test('the call screen opens with the headline, the live merchant count and the c
   expect(screen.getByRole('heading', { name: /One teammate, built to act/ })).toBeInTheDocument()
   expect(screen.getByText('Rules enforced in code')).toBeInTheDocument()
   expect(screen.getByText('Demo merchants')).toBeInTheDocument()
+})
+
+test('an emergency call shows the live transfer to a person', async () => {
+  const t = { ...ticket, status: 'escalated', resolved_by: null, call: { ...ticket.call, status: 'in-progress', transfer_status: 'attempted' } }
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    const body = url.endsWith('/merchants') ? merchants : url.endsWith('/calls') && init?.method === 'POST' ? { ticket_id: 7, call_id: 'ex1' } : t
+    return new Response(JSON.stringify(body), { status: 200 })
+  }))
+  render(<App />)
+  await screen.findByRole('option', { name: /Test Store/ })
+  await userEvent.type(screen.getByLabelText(/Your phone number/), '+919876543210')
+  await userEvent.type(screen.getByLabelText(/Email for your confirmation/), 'owner@example.com')
+  await userEvent.click(screen.getByRole('button', { name: 'Call me' }))
+  expect(await screen.findByText('Connecting you to our support team…')).toBeInTheDocument()
 })

@@ -12,4 +12,5 @@ if not settings.public_base_url.startswith("https://"):
 bolna.apply_agent(settings.public_base_url)
 agent = bolna._get(f"/v2/agent/{settings.bolna_paytm_agent_id}")
 names = [t.get("name") for task in agent.get("tasks", []) for t in ((task.get("tools_config") or {}).get("api_tools") or {}).get("tools", []) or []]
+print("live transfer for emergencies:", "ON" if bolna.transfer_number() else "off (SUPPORT_TRANSFER_NUMBER not set; emergencies stay a callback)")
 print("applied; agent now has tools:", names, "| webhook:", agent.get("webhook_url"))

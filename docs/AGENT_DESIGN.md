@@ -66,6 +66,8 @@ The teammate only handles Paytm merchant support: settlements, payments and refu
 - **No sensitive data in logs:** `hide_parameters`, only the last four digits of a phone number stored, the contact email never returned by the API.
 
 ## Emergencies and escalation
+**Live transfer (emergencies only).** When `SUPPORT_TRANSFER_NUMBER` is set, an emergency escalation on a live call (`fraud_or_legal`, `abusive_or_distressed`) answers the agent with `transfer: true`, and the agent then calls Bolna's built-in `transfer_call_support` tool, which bridges the call to that number. Every other escalation, and every emergency when no number is set, stays a callback. The destination lives in the agent's own configuration, so the model can never choose where a call goes. The app records what Bolna reports about the transfer leg (`requested`, `attempted`, `transferred`, `failed`) and never shows a request as a completed transfer. If nobody picks up, or the call ends before it connects, the support inbox gets an urgent "call the merchant back now" email with the merchant's number, taken from Bolna's record and not stored here.
+
 Emergency reasons (`fraud_or_legal`, `abusive_or_distressed`) escalate straight away. Besides the case package below, the human support inbox gets an urgent email with the summary, steps tried and recommended action. The merchant gets an acknowledgement email.
 
 Every escalation stores: reason code, one-paragraph case summary, steps already attempted, and a recommended next action. A human sees the case in the console without re-reading the call. When the human resolves it, the ticket closes with `resolved_by = human` and the note goes to the merchant.
