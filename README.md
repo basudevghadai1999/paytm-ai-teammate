@@ -107,7 +107,7 @@ The auto-resolution rate over the whole set is about 40%, because half the scena
 
 ## Docs
 
-The documents below were written before the move from chat to phone calls. Where they say "chat", read "call"; the rest (policy, guardrails, data model, evals) still holds.
+The documents below describe the system as built: phone calls through Bolna, confirmation emails through Resend, the guarded tools, domain scope and the evals.
 
 | File | Purpose |
 |---|---|

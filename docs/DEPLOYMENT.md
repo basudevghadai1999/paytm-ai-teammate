@@ -1,47 +1,61 @@
-# Deployment (copied from COOLops)
+# Deployment (copied from COOLops, plus voice and email)
 
 ## Pipeline
 Same as COOLops: GitHub push, Render builds the Docker image, container start runs migrations then the server.
 
 ```
 git push -> GitHub Actions CI (tests + build) -> Render autoDeploy -> docker build
-  -> container start: alembic upgrade head && uvicorn app.main:app
+  -> container start: alembic upgrade head && python -m app.seed_if_empty && uvicorn app.main:app
 ```
 
 ## Dockerfile (multi-stage, same as COOLops)
 1. **web stage:** `node:22-slim`, `npm ci`, `npm run build` for the frontend.
 2. **runtime stage:** `python:3.13-slim`, install backend from `pyproject.toml`, copy `app/`, `alembic.ini`, `alembic/`, and the built frontend into `./static`.
-3. `CMD`: `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'`.
+3. `CMD`: `alembic upgrade head && python -m app.seed_if_empty && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'`. The seed loads only when `tm_merchants` is empty, so redeploys keep existing tickets.
 
 ## render.yaml
-A single free web service, `runtime: docker`, `healthCheckPath: /readyz`, `autoDeploy: true`. Service name: `paytm-teammate` (a **new** Render service; do not reuse the COOLops one).
+A single free web service `paytm-teammate`, `runtime: docker`, `healthCheckPath: /readyz`, `autoDeploy: true`. A **new** Render service; do not reuse the COOLops one. The repository can be private: Render connects through its GitHub app.
 
 ## Environment variables
 | Variable | Source |
 |---|---|
 | `ENVIRONMENT` | `production` |
-| `DATABASE_URL` | Same Supabase session-pooler URL and `coolops_app` role as COOLops |
-| `MIGRATION_DATABASE_URL` | Same Supabase owner-role URL as COOLops; used only by Alembic at start |
-| `GROQ_API_KEY` | Same key as COOLops |
-| `GROQ_MODEL` | Optional, default `openai/gpt-oss-120b` |
-| `PUBLIC_BASE_URL` | `https://<service>.onrender.com` |
+| `DATABASE_URL`, `MIGRATION_DATABASE_URL` | Same Supabase session-pooler URLs and roles as COOLops (runtime `coolops_app`, owner for Alembic only) |
+| `NVIDIA_API_KEY`, `NVIDIA_MODEL` | Chat-path model (default `nvidia/nemotron-3.5-super-vl-120b-a12b`); used when set |
+| `GROQ_API_KEY`, `GROQ_MODEL` | Fallback model (`openai/gpt-oss-120b`); `LLM_PROVIDER=auto` picks NVIDIA first |
+| `BOLNA_API_KEY` | Bolna account key |
+| `BOLNA_PAYTM_AGENT_ID` | This app's own Bolna agent. **Never** the COOLops agent |
+| `BOLNA_WEBHOOK_SECRET` | A long random string, identical in Render and in the Bolna agent's tool definitions (written by `apply_agent`) |
+| `DEMO_CALL_ALLOWLIST` | Comma-separated E.164 numbers the demo may dial. Empty in production means calls are off |
+| `RESEND_API_KEY` | Resend key |
+| `EMAIL_FROM` | An address on a domain verified in Resend. The default sandbox sender only delivers to the Resend account owner |
+| `SUPPORT_ALERT_EMAIL` | Human support inbox for emergency escalations; empty means no alert email |
+| `PUBLIC_BASE_URL` | `https://<service>.onrender.com`; written into the Bolna agent's tool and webhook URLs |
 | `AUTO_REFUND_LIMIT_INR` | Optional, default 2000 |
+| `ALLOW_DEMO_RESET` | `false` by default; `true` lets the console's reset button delete all tickets |
 
-Secrets are set in the Render dashboard (`sync: false`) and in a local, git-ignored `.env`. They must never be committed. COOLops keeps credentials in `CREDENTIALS.md`, which is git-ignored; do the same.
+Secrets are set in the Render dashboard (`sync: false`) and in a local, git-ignored `.env`. They must never be committed.
+
+## Bolna agent
+1. Create a **new** agent in Bolna and choose its voice and transcriber (this deployment uses a Sarvam voice, Deepgram nova-3).
+2. With the variables above set, run `python -m app.apply_agent` from `backend/`. It writes the voice prompt, the nine tools, the webhook, the Hindi transcriber language and the Hindi voice language into the agent, then you read the agent back to confirm. Re-run it whenever `PUBLIC_BASE_URL` or the prompt changes. A saved backup of an agent's previous config is the way back.
+3. Place one controlled test call before any demo.
 
 ## CI (GitHub Actions)
-Same two jobs as COOLops:
-- **backend:** Postgres 16 service, create owner and app roles, `pip install -e 'backend[dev]'`, `alembic upgrade head`, `pytest -q`. The CI database is a throwaway, not Supabase.
+`.github/workflows/ci.yml`, on every push and pull request:
+- **backend:** Postgres 16 service, create owner and app roles, `pip install -e 'backend[dev]'`, `alembic upgrade head`, `pytest -q` (46 tests with a scripted model and a mocked Bolna and Resend; no API keys needed). The CI database is a throwaway, not Supabase.
 - **frontend:** Node 22, `npm ci && npm test && npm run build`.
 
 ## Shared-database safeguards
-- Migration `0001` creates only `tm_*` tables, and grants privileges only on those.
+- Migrations `0001` to `0003` create and alter only `tm_*` tables, and grant privileges only on those.
 - Version table `alembic_version_teammate` keeps migration history separate.
-- Rollback: `alembic downgrade base` drops only `tm_*` tables.
-- Take a quick look at the Supabase table list before the first deploy to confirm no `tm_` name already exists.
+- Rollback: `alembic downgrade base` drops only `tm_*` objects.
+- Look at the Supabase table list before the first deploy to confirm no `tm_` name already exists.
 
 ## Pre-demo checklist
-1. Deploy at least a few hours before the demo and confirm `/readyz` returns OK.
-2. Warm the free instance a few minutes before presenting (cold start).
-3. Seed data is loaded and the three demo scenarios run once.
-4. A screen recording of a successful run exists as a fallback.
+1. Deploy at least a few hours before the demo and confirm `/readyz` returns OK and `/healthz` shows the new revision.
+2. **Warm the free instance** a few minutes before presenting: a cold start of up to a minute would make the first tool calls on a call time out.
+3. Confirm the Bolna agent was applied against the live URL, and place a test call to the allowlisted number.
+4. Confirm a confirmation email arrives, and that the emergency alert reaches `SUPPORT_ALERT_EMAIL`.
+5. Seed data is loaded and the demo scenarios run once.
+6. A screen recording of a successful call exists as a fallback.
